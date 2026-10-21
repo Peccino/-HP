@@ -1,0 +1,1527 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>草野球チーム手帳</title>
+<script src="config.js"></script>
+<script src="tools/portal-convert.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+/* Layout: one column, scoreboard header + two-group tab bar (members | admin); cards only for events and notices; tables scroll in their own box */
+:root {
+  --bg: #f2f4ef;
+  --surface: #ffffff;
+  --sunk: #e8ece5;
+  --fg: #17241d;
+  --muted: #5b6a61;
+  --line: #d6ddd5;
+  --accent: #1f5c45;
+  --accent-fg: #ffffff;
+  --clay: #b4532a;
+  --yes: #2a7a4b;
+  --no: #b33838;
+  --maybe: #a87e12;
+  --sat: #3a6db3;
+  --board: #183c2e;
+  --board-fg: #f3f1e4;
+  --display: "Dela Gothic One", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --body: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1511; --surface: #16201a; --sunk: #1c2821; --fg: #e6ece7; --muted: #96a59c; --line: #2a3a31;
+    --accent: #66c296; --accent-fg: #0a140e; --clay: #e38c62; --yes: #6fcb94; --no: #ef7f7f; --maybe: #e3bb52; --sat: #7fa8e6;
+    --board: #0a2419; --board-fg: #efeedf; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1511; --surface: #16201a; --sunk: #1c2821; --fg: #e6ece7; --muted: #96a59c; --line: #2a3a31;
+  --accent: #66c296; --accent-fg: #0a140e; --clay: #e38c62; --yes: #6fcb94; --no: #ef7f7f; --maybe: #e3bb52; --sat: #7fa8e6;
+  --board: #0a2419; --board-fg: #efeedf; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+.gate { position: fixed; inset: 0; z-index: 30; background: var(--board); display: grid; place-items: center; padding: 16px; }
+.gate .form { width: min(380px, 100%); }
+.gate h1 { font-family: var(--display); font-weight: 400; font-size: 24px; margin: 0; color: var(--accent); }
+.err { color: var(--no); font-size: 13px; margin: 0; }
+.codeIn { width: 9em; }
+.newcode { font-family: var(--display); font-size: 15px; color: var(--clay); letter-spacing: .08em; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 800px; margin: 0 auto; padding: 0 16px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* scoreboard header */
+.board { background: var(--board); color: var(--board-fg); padding-block: 20px 0; }
+.board-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.team-name { font-family: var(--display); font-size: clamp(22px, 6vw, 30px); line-height: 1.2; margin: 0; letter-spacing: .02em; text-wrap: balance; }
+.season { font-size: 12px; opacity: .85; letter-spacing: .08em; display: flex; gap: 8px; align-items: center; }
+.record { display: flex; gap: 2px; }
+.record div { background: rgba(0,0,0,.28); padding: 4px 10px; text-align: center; min-width: 52px; }
+.record b { display: block; font-family: var(--display); font-size: 22px; font-weight: 400; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.record span { font-size: 11px; opacity: .75; }
+.tabs { display: flex; gap: 2px; margin-top: 16px; overflow-x: auto; align-items: stretch; scrollbar-width: none; }
+.tabs button { background: none; border: 0; color: var(--board-fg); opacity: .7; padding: 10px 12px; font-weight: 700; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
+.tabs button[aria-selected="true"] { opacity: 1; border-bottom-color: var(--clay); }
+.tabs .sep { display: flex; align-items: center; padding: 0 6px 0 12px; margin-left: 6px; border-left: 1px solid rgba(255,255,255,.25); font-size: 11px; letter-spacing: .1em; opacity: .7; white-space: nowrap; }
+.role { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: var(--clay); color: var(--board-fg); letter-spacing: .04em; }
+
+main { padding-block: 20px 60px; }
+main > section { display: grid; gap: 24px; }
+h2 { font-size: 17px; margin: 0; text-wrap: balance; }
+h3 { font-size: 13px; margin: 0; color: var(--muted); letter-spacing: .06em; }
+.section { display: grid; gap: 12px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.spread { justify-content: space-between; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.note { background: var(--sunk); padding: 10px 12px; border-radius: 6px; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+/* controls */
+.btn { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 14px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.danger { color: var(--no); }
+.btn.danger.armed { background: var(--no); color: var(--surface); border-color: var(--no); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
+input[type=text], input[type=date], input[type=time], input[type=number], select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; min-width: 0; }
+textarea { width: 100%; min-height: 96px; resize: vertical; line-height: 1.6; }
+label.f { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 500; min-width: 0; }
+label.f > input, label.f > select, label.f > textarea { color: var(--fg); font-size: 15px; width: 100%; }
+label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.form { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; }
+.form fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 12px; }
+.form legend { font-size: 12px; font-weight: 700; color: var(--clay); letter-spacing: .08em; margin-bottom: 8px; padding: 0; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { background: var(--surface); border: 0; padding: 6px 14px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); font-weight: 700; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.fchip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 12px; font-size: 13px; cursor: pointer; }
+.fchip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 700; }
+
+/* me bar */
+.mebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.badge { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: var(--sunk); color: var(--muted); letter-spacing: .04em; white-space: nowrap; }
+.badge.ok { background: var(--yes); color: var(--surface); }
+.badge.wait { background: var(--maybe); color: var(--surface); }
+.badge.new { background: var(--clay); color: var(--surface); }
+
+/* events */
+.ev { display: grid; grid-template-columns: 64px 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.ev-date { background: var(--sunk); display: grid; place-content: center; text-align: center; padding: 10px 4px; }
+.ev-date .md { font-family: var(--display); font-size: 19px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ev-date .wd { font-size: 12px; color: var(--muted); }
+.ev-date .wd.sun { color: var(--no); } .ev-date .wd.sat { color: var(--sat); }
+.ev-body { padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+.ev-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; font-weight: 700; }
+.pill { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; letter-spacing: .04em; white-space: nowrap; }
+.pill.game { color: var(--clay); } .pill.practice { color: var(--accent); }
+.pill.off { color: var(--surface); background: var(--muted); border-color: var(--muted); }
+.ev.off .ev-title > span:not(.pill) { text-decoration: line-through; color: var(--muted); }
+/* until a member (or admin) logs in, only the login bar is shown */
+body.locked .record, body.locked #tabs { display: none; }
+body.locked #tab-home > :not(#meBar) { display: none !important; }
+.result { font-family: var(--display); font-weight: 400; font-size: 15px; font-variant-numeric: tabular-nums; }
+.W { color: var(--yes); } .L { color: var(--no); } .D { color: var(--muted); }
+.tally { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.tally b { font-variant-numeric: tabular-nums; }
+.t-yes { color: var(--yes); } .t-no { color: var(--no); } .t-maybe { color: var(--maybe); }
+.rsvp { display: flex; gap: 6px; flex-wrap: wrap; }
+.rsvp button { flex: 1 1 0; min-width: 72px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; cursor: pointer; font-weight: 700; }
+.rsvp button[data-v="yes"][aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: var(--surface); }
+.rsvp button[data-v="maybe"][aria-pressed="true"] { background: var(--maybe); border-color: var(--maybe); color: var(--surface); }
+.rsvp button[data-v="no"][aria-pressed="true"] { background: var(--no); border-color: var(--no); color: var(--surface); }
+.rsvp button:disabled { opacity: .45; cursor: not-allowed; }
+details > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+.who { display: grid; gap: 4px; font-size: 13px; padding-top: 6px; }
+.who span.k { display: inline-block; width: 4.5em; font-weight: 700; }
+.empty { border: 1px dashed var(--line); border-radius: 8px; padding: 20px; text-align: center; color: var(--muted); font-size: 14px; }
+
+/* notices */
+.notice { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 4px; }
+.notice.pinned { border-color: var(--clay); }
+.notice .body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+
+/* home */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.kpis div { background: var(--surface); padding: 10px 14px; }
+.kpis span { font-size: 12px; color: var(--muted); }
+.kpis b { display: block; font-family: var(--display); font-weight: 400; font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.3; }
+.leaders { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.lb { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
+.lb h3 { margin-bottom: 6px; }
+.lb ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.lb li { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.lb li .rk { color: var(--muted); font-variant-numeric: tabular-nums; width: 1.4em; display: inline-block; }
+.lb li:first-child { font-weight: 700; }
+.lb li b { font-variant-numeric: tabular-nums; }
+
+/* tables */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 8px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th { font-size: 11px; color: var(--muted); font-weight: 700; background: var(--sunk); letter-spacing: .04em; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sorted { color: var(--accent); }
+td.name, th.name, td.l, th.l { text-align: left; }
+td.name, th.name { position: sticky; left: 0; }
+td.name { background: var(--surface); font-weight: 500; }
+th.name { background: var(--sunk); }
+tr:last-child td { border-bottom: 0; }
+tr.total td { font-weight: 700; background: var(--sunk); }
+td input { width: 52px; padding: 4px 6px; text-align: right; }
+td input.ip { width: 60px; }
+td select { padding: 4px 6px; }
+.num { font-family: var(--display); font-weight: 400; color: var(--muted); font-size: 12px; margin-right: 6px; }
+button.pname { background: none; border: 0; padding: 0; cursor: pointer; font-weight: 500; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+
+/* money */
+.plus { color: var(--yes); } .minus { color: var(--no); }
+.dues-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; background: var(--surface); font-size: 13px; }
+.chip[aria-pressed="true"] { background: var(--yes); border-color: var(--yes); color: var(--surface); font-weight: 700; }
+.chip:disabled { cursor: default; }
+.list { display: grid; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.li { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.li:last-child { border-bottom: 0; }
+.li .grow { flex: 1 1 160px; min-width: 0; }
+.li .sub { flex-basis: 100%; }
+.amt { font-variant-numeric: tabular-nums; font-weight: 700; }
+.cost-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+tr.hist td { background: var(--sunk); }
+.date { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; min-width: 5.5em; }
+
+.remind { background: var(--surface); border: 2px solid var(--clay); border-radius: 8px; padding: 12px 14px; display: grid; gap: 6px; }
+.remind b.t { color: var(--clay); }
+.ev.need { border-color: var(--clay); box-shadow: inset 4px 0 0 var(--clay); }
+.late { font-size: 12px; color: var(--clay); }
+.copybox { white-space: pre-wrap; background: var(--sunk); border-radius: 6px; padding: 10px 12px; font-size: 13px; margin: 0; overflow-wrap: anywhere; }
+/* players */
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.pcard { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; cursor: pointer; }
+.pcard:hover { border-color: var(--accent); }
+.pcard .no { font-family: var(--display); font-size: 26px; line-height: 1; color: var(--accent); grid-row: span 2; min-width: 1.6em; text-align: center; font-variant-numeric: tabular-nums; }
+.pcard .nm { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.pcard .ps { font-size: 12px; color: var(--muted); }
+.phead { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; background: var(--board); color: var(--board-fg); border-radius: 8px; padding: 16px; }
+.phead .no { font-family: var(--display); font-size: 44px; line-height: 1; grid-row: span 3; }
+.phead h2 { font-family: var(--display); font-weight: 400; font-size: 24px; }
+.phead .meta { font-size: 13px; opacity: .85; }
+.pr { white-space: pre-wrap; font-size: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 0; overflow-wrap: anywhere; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 8px 4px; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .ax { fill: var(--muted); font-size: 11px; font-family: var(--body); }
+.chart .ln { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .pt { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.chart .hit { fill: transparent; cursor: pointer; }
+.chart .end { fill: var(--fg); font-size: 12px; font-weight: 700; font-family: var(--body); }
+.tip { position: fixed; z-index: 20; background: var(--fg); color: var(--bg); font-size: 12px; padding: 4px 8px; border-radius: 4px; pointer-events: none; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); }
+.bars { display: grid; gap: 4px; font-size: 13px; }
+.bars .b { display: grid; grid-template-columns: 5em 1fr 3.5em; gap: 8px; align-items: center; }
+.bars .track { height: 10px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
+.bars .fill { height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+.bars .v { text-align: right; font-variant-numeric: tabular-nums; }
+/* game detail + album */
+.score-big { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; background: var(--board); color: var(--board-fg); border-radius: 8px; padding: 14px 16px; }
+.score-big .sc { font-family: var(--display); font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+.score-big .wl { font-family: var(--display); font-size: 18px; padding: 2px 10px; border-radius: 4px; background: rgba(0,0,0,.3); }
+.album { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.album figure { margin: 0; position: relative; background: var(--sunk); border-radius: 6px; overflow: hidden; aspect-ratio: 1; max-width: 100%; }
+.album img, .album video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.album .del { position: absolute; top: 4px; right: 4px; }
+.album .ph { display: grid; place-items: center; height: 100%; font-size: 12px; color: var(--muted); padding: 8px; text-align: center; }
+.upl { display: inline-flex; align-items: center; gap: 8px; }
+.upl input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.gl .li { cursor: pointer; }
+.gl .li:hover { background: var(--sunk); }
+.toast { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 16px; border-radius: 6px; font-size: 14px; z-index: 10; max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: no-preference) { .toast { animation: up .2s ease-out; } @keyframes up { from { transform: translate(-50%, 8px); opacity: 0; } } }
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden>
+  <form class="form" id="gateForm">
+    <h1 id="gateTeam">チーム手帳</h1>
+    <label class="f">チームの合言葉<input type="password" id="gateCode" autocomplete="current-password" required></label>
+    <p class="err" id="gateErr" hidden></p>
+    <div class="row"><button class="btn primary" type="submit">入る</button></div>
+    <p class="small muted" style="margin:0">合言葉はチームの管理者から聞いてください。この端末では次回から入力不要です。</p>
+  </form>
+</div>
+
+<header class="board">
+  <div class="wrap">
+    <div class="board-top">
+      <div>
+        <div class="season"><span id="seasonLabel">SEASON</span><span class="role" id="roleBadge" hidden>管理者</span></div>
+        <h1 class="team-name" id="teamName">マイチーム</h1>
+      </div>
+      <div class="record" aria-label="今シーズンの戦績">
+        <div><b id="recW">0</b><span>勝</span></div>
+        <div><b id="recL">0</b><span>敗</span></div>
+        <div><b id="recD">0</b><span>分</span></div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="note" id="statusNote" hidden></div>
+
+  <!-- ===== HOME ===== -->
+  <section id="tab-home">
+    <div class="section" id="remindBox" hidden></div>
+    <div class="mebar" id="meBar"><span class="small muted">読み込み中…</span></div>
+    <div class="section" id="homeNotices"></div>
+    <div class="section" id="homeEventsWrap">
+      <div class="row spread"><h2>直近のスケジュール</h2><button class="link" data-goto="sched">すべて見る</button></div>
+      <div class="section" id="homeEvents"></div>
+    </div>
+    <div class="section">
+      <div class="row spread"><h2 id="homeTeamTitle">チーム成績</h2><button class="link" data-goto="team">くわしく</button></div>
+      <div class="kpis" id="homeTeam"></div>
+    </div>
+    <div class="section">
+      <div class="row spread"><h2 id="homeLeadTitle">個人成績トップ3</h2><button class="link" data-goto="personal">すべての成績</button></div>
+      <div class="leaders" id="homeLeaders"></div>
+      <p class="small muted" style="margin:0" id="homeQualNote"></p>
+    </div>
+  </section>
+
+  <!-- ===== スケジュール ===== -->
+  <section id="tab-sched" hidden>
+    <div class="section"><h2>今後のスケジュール</h2><div class="section" id="upcoming"></div></div>
+    <details id="pastWrap">
+      <summary><h2 style="display:inline">終わった予定</h2></summary>
+      <div id="past" class="section" style="margin-top:12px"></div>
+    </details>
+  </section>
+
+  <!-- ===== 試合結果 ===== -->
+  <section id="tab-results" hidden>
+    <div id="resultsList" class="section">
+      <div class="row spread">
+        <h2>試合結果</h2>
+        <label class="row small">年度 <select id="yearSelR" class="yearSel"></select></label>
+      </div>
+      <div class="filters kindFilter" role="group" aria-label="試合種別"></div>
+      <div id="gamesList"></div>
+    </div>
+    <div id="gameDetail" class="section" hidden></div>
+  </section>
+
+  <!-- ===== 選手名鑑 ===== -->
+  <section id="tab-players" hidden>
+    <div id="playersList" class="section">
+      <div class="row spread"><h2>選手名鑑</h2><label class="chk small"><input type="checkbox" id="showHidden"> 休部中も表示</label></div>
+      <div class="pgrid" id="playerGrid"></div>
+    </div>
+    <div id="playerDetail" class="section" hidden></div>
+  </section>
+
+  <!-- ===== 個人成績 ===== -->
+  <section id="tab-personal" hidden>
+    <div class="row spread">
+      <div class="seg" role="group" aria-label="成績の種類">
+        <button type="button" data-statkind="bat" aria-pressed="true">打撃</button>
+        <button type="button" data-statkind="pit" aria-pressed="false">投手</button>
+      </div>
+      <label class="row small">年度 <select id="yearSelP" class="yearSel"></select></label>
+    </div>
+    <div class="filters kindFilter" role="group" aria-label="試合種別"></div>
+    <div class="row"><label class="chk"><input type="checkbox" id="qualOnly" checked> 規定到達者のみ</label><span class="small muted" id="qualInfo"></span></div>
+    <div class="tbl-wrap" id="leaders"></div>
+    <p class="small muted" style="margin:0">選手名をタップすると試合ごとの成績を表示します。過去の試合結果と成績は Peccino ポータルから反映しています（助っ人の成績はチーム合計にのみ含みます）。防御率は7イニング換算。出塁率は（安打＋四死球）÷（打数＋四死球＋犠飛）。</p>
+    <div class="section" id="gameLog"></div>
+  </section>
+
+  <!-- ===== チーム成績 ===== -->
+  <section id="tab-team" hidden>
+    <div class="row spread">
+      <h2>チーム成績</h2>
+      <label class="row small">年度 <select id="yearSelT" class="yearSel"></select></label>
+    </div>
+    <div class="filters kindFilter" role="group" aria-label="試合種別"></div>
+    <div class="kpis" id="teamKpis"></div>
+    <div class="section"><h3>種別ごとの成績</h3><div class="tbl-wrap" id="teamByKind"></div></div>
+    <div class="section"><h3>チーム打撃・投手</h3><div class="tbl-wrap" id="teamTotals"></div></div>
+    <div class="section"><h3>試合結果</h3><div id="teamGames"></div></div>
+  </section>
+
+  <!-- ===== 会計 ===== -->
+  <section id="tab-money" hidden>
+    <div class="row spread">
+      <h2 id="moneyTitle">会計</h2>
+      <label class="row small">年 <select id="yearSelM"></select></label>
+    </div>
+    <div class="kpis" id="moneyKpis"></div>
+    <div class="section"><h3>項目別</h3><div class="tbl-wrap" id="moneyCats"></div></div>
+    <div class="section"><h3>部費の納入状況</h3><div id="dues" class="section"></div></div>
+    <div class="section"><h3>入出金の明細</h3><div id="ledger"></div></div>
+    <p class="small muted" style="margin:0">予定に登録した費用・参加費、部費の納入分も自動で明細に入ります。</p>
+  </section>
+
+  <!-- ===== 管理：メンバー登録 ===== -->
+  <section id="tab-a-members" hidden>
+    <div class="section" id="pendingWrap" hidden>
+      <h2>本人確認の申請</h2>
+      <div id="pending"></div>
+    </div>
+    <form class="form" id="memForm">
+      <h2>メンバーを登録</h2>
+      <div class="grid2">
+        <label class="f">名前<input type="text" id="memName" required placeholder="例：山田 太郎"></label>
+        <label class="f">背番号<input type="number" id="memNo" min="0" max="999"></label>
+        <label class="f">ポジション<select id="memPos">
+          <option value="">—</option><option>投手</option><option>捕手</option><option>内野手</option><option>一塁手</option><option>二塁手</option><option>三塁手</option><option>遊撃手</option><option>外野手</option><option>コーチ</option><option>マネージャー</option>
+        </select></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="memNoRsvp"> 出欠の回答は不要（コーチ・マネージャーなど）</label>
+      <div class="row"><button class="btn primary" type="submit">登録する</button></div>
+    </form>
+    <div class="section"><h2>メンバー一覧</h2><div id="memList"></div></div>
+  </section>
+
+  <!-- ===== 管理：スケジュール登録 ===== -->
+  <section id="tab-a-sched" hidden>
+    <form class="form" id="evForm">
+      <div class="row spread"><h2 id="evFormTitle">予定を登録</h2><button class="link" type="button" data-action="cancel-edit" id="cancelEdit" hidden>編集をやめる</button></div>
+      <fieldset>
+        <legend>日時・場所</legend>
+        <div class="grid2">
+          <label class="f">試合種別<select id="evKind"><option>練習</option><option selected>練習試合</option><option>リーグ戦</option><option>大会</option><option>その他</option></select></label>
+          <label class="f">日付<input type="date" id="evDate" required></label>
+          <label class="f">開始時間<input type="time" id="evStart"></label>
+          <label class="f">終了時間<input type="time" id="evEnd"></label>
+          <label class="f">集合時間<input type="time" id="evMeet"><span class="small muted" id="meetHint">開始の20分前を自動で入れます</span></label>
+          <label class="f">場所<input type="text" id="evPlace" placeholder="例：市民球場 B面"></label>
+          <label class="f" id="oppWrap">対戦相手<input type="text" id="evOpp" placeholder="例：〇〇クラブ"></label>
+        </div>
+        <label class="f">メモ<input type="text" id="evNote" placeholder="例：ユニフォーム白、審判当番あり"></label>
+      </fieldset>
+      <fieldset>
+        <legend>会計</legend>
+        <div class="section" id="costRows" style="gap:8px"></div>
+        <div><button class="btn small" type="button" data-action="add-cost">＋ 費用を追加</button></div>
+        <div class="grid2">
+          <label class="f">参加費 1人あたり（円）<input type="number" id="evFee" min="0" step="10" placeholder="0"></label>
+        </div>
+      </fieldset>
+      <div class="row"><button class="btn primary" type="submit" id="evSubmit">登録する</button></div>
+    </form>
+    <div class="section"><h2>登録済みの予定</h2><div id="adminEvents"></div></div>
+  </section>
+
+  <!-- ===== 管理：通知 ===== -->
+  <section id="tab-a-alerts" hidden>
+    <div class="section">
+      <div class="row spread"><h2>出欠の変更（活動日6日前以降）</h2><button class="btn small" data-action="mark-read">すべて既読にする</button></div>
+      <div id="changeAlerts"></div>
+    </div>
+    <div class="section">
+      <h2>出欠の催促（活動日10日前から）</h2>
+      <p class="small muted" style="margin:0">未定・未回答のメンバーには HOME に催促が表示されます。LINE などで送る場合は文面をコピーしてください。</p>
+      <div id="remindList" class="section"></div>
+    </div>
+  </section>
+
+  <!-- ===== 管理：設定 ===== -->
+  <section id="tab-a-settings" hidden>
+    <div class="form">
+      <h2>ポータルから取り込み</h2>
+      <p class="small muted" style="margin:0">Peccino ポータルの試合結果と選手プロフィールを読み込み、新しい試合や変更があった分だけ反映します。アルバム・動画・出欠には影響しません。</p>
+      <p class="small" style="margin:0" id="portalStatus" hidden></p>
+      <div class="row"><button class="btn primary" type="button" data-action="portal-import">取り込み</button></div>
+    </div>
+
+    <form class="form" id="rulesForm">
+      <h2>規定打席・規定投球回</h2>
+      <div class="grid2">
+        <label class="f">規定打席（試合数 ×）<input type="number" id="paMul" min="0" step="0.1" placeholder="1.7"></label>
+        <label class="f">規定投球回（試合数 ×）<input type="number" id="ipMul" min="0" step="0.1" placeholder="0.5"></label>
+      </div>
+      <p class="small muted" style="margin:0" id="rulesPreview"></p>
+      <div class="row"><button class="btn primary" type="submit">保存する</button></div>
+    </form>
+
+    <div class="section">
+      <h2>会計追記</h2>
+      <form class="form" id="ledForm">
+        <h3>入出金を記録</h3>
+        <div class="row">
+          <div class="seg" role="group" aria-label="収支">
+            <button type="button" data-ledkind="out" aria-pressed="true">支出</button>
+            <button type="button" data-ledkind="in" aria-pressed="false">収入</button>
+          </div>
+        </div>
+        <div class="grid2">
+          <label class="f">日付<input type="date" id="ledDate" required></label>
+          <label class="f">金額（円）<input type="number" id="ledAmt" min="0" step="1" required></label>
+          <label class="f">項目<select id="ledCat"></select></label>
+          <label class="f">メモ<input type="text" id="ledMemo" placeholder="例：ボール1ダース"></label>
+        </div>
+        <div class="row"><button class="btn primary" type="submit">記録する</button></div>
+      </form>
+      <form class="form" id="duesForm">
+        <h3>部費の徴収を作成</h3>
+        <div class="grid2">
+          <label class="f">名目<input type="text" id="duesLabel" placeholder="例：2026年 後期部費" required></label>
+          <label class="f">1人あたり（円）<input type="number" id="duesAmt" min="0" step="10" required></label>
+        </div>
+        <div class="row"><button class="btn primary" type="submit">作成する</button></div>
+      </form>
+      <div class="section"><h3>部費の納入チェック</h3><div id="adminDues" class="section"></div></div>
+      <div class="section"><h3>入出金の記録（削除はここから）</h3><div id="adminLedger"></div></div>
+    </div>
+
+    <form class="form" id="secretForm">
+      <h2>合言葉・管理者パスワードの変更</h2>
+      <div class="grid2">
+        <label class="f">変更するもの<select id="secretKey"><option value="team">チームの合言葉</option><option value="admin">管理者パスワード</option></select></label>
+        <label class="f">新しい値（4文字以上）<input type="text" id="secretVal" autocomplete="off"></label>
+      </div>
+      <div class="row"><button class="btn" type="submit">変更する</button></div>
+    </form>
+    <form class="form" id="teamForm">
+      <h2>チーム設定</h2>
+      <label class="f">チーム名<input type="text" id="teamInput" placeholder="チーム名"></label>
+      <div class="row"><button class="btn" type="submit">保存する</button></div>
+    </form>
+  </section>
+
+  <!-- ===== 管理：お知らせ ===== -->
+  <section id="tab-a-notice" hidden>
+    <form class="form" id="noticeForm">
+      <h2>お知らせを発信</h2>
+      <label class="f">タイトル<input type="text" id="ntTitle" required placeholder="例：10/26 の試合は雨天中止"></label>
+      <label class="f">本文<textarea id="ntBody" placeholder="詳しい内容"></textarea></label>
+      <label class="chk"><input type="checkbox" id="ntPin"> HOME の一番上に固定する</label>
+      <div class="row"><button class="btn primary" type="submit">発信する</button></div>
+    </form>
+    <div class="section"><h2>発信済み</h2><div id="adminNotices"></div></div>
+  </section>
+</main>
+<footer class="wrap" style="padding-block:0 40px"><div class="section" id="adminBox"></div></footer>
+
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const yen = (n) => (n < 0 ? "−¥" : "¥") + Math.abs(Math.round(n)).toLocaleString("ja-JP");
+  const pad = (n) => String(n).padStart(2, "0");
+  const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const thisYear = String(new Date().getFullYear());
+  const WD = ["日", "月", "火", "水", "木", "金", "土"];
+  const mdw = (date) => { const d = new Date(date + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`; };
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+
+  const MEMBER_TABS = [["home", "HOME"], ["sched", "スケジュール"], ["results", "試合結果"], ["personal", "個人成績"], ["team", "チーム成績"], ["players", "選手名鑑"], ["money", "会計"]];
+  const ADMIN_TABS = [["a-members", "メンバー登録"], ["a-sched", "スケジュール登録"], ["a-notice", "お知らせ"], ["a-alerts", "通知"], ["a-settings", "設定"]];
+  const GAME_KINDS = ["練習試合", "公式戦", "リーグ戦", "大会", "その他"];
+  // 試合結果・成績の絞り込み: リーグ戦・大会 etc. are counted under その他
+  const RESULT_KINDS = ["練習試合", "公式戦", "その他"];
+  const resultKind = (k) => RESULT_KINDS.includes(k) ? k : "その他";
+  const COST_LABELS = ["グラウンド代", "審判代", "連盟費", "大会参加費", "ボール・用具", "その他"];
+
+  const S = { members: [], events: [], stats: [], history: [], extgames: [], profiles: [], media: [], gamemedia: [], ledger: [], dues: [], rsvp: [], notices: [], team: { name: "" }, loaded: false };
+  let db = null, assetsNs = null, userNs = null, isAdmin = false, myUid = null;
+  // ---------- Supabase layer: every read/write goes through RPCs that check the team code, the member's code or the admin password ----------
+  const CFG = window.APP_CONFIG || {};
+  const sb = window.supabase && CFG.url && CFG.key ? window.supabase.createClient(CFG.url, CFG.key, { auth: { persistSession: false } }) : null;
+  const cred = { team: store.get("teamCode") || "", admin: store.get("adminCode") || "", member: store.get("memberId") || "", code: store.get("memberCode") || "" };
+  const saveCred = () => { store.set("teamCode", cred.team); store.set("adminCode", cred.admin); store.set("memberId", cred.member); store.set("memberCode", cred.code); };
+  async function rpc(fn, args) {
+    if (!sb) throw Object.assign(new Error("not configured"), { code: "unavailable" });
+    const { data, error } = await sb.rpc(fn, args);
+    if (error) {
+      const m = (error.message || "") + " " + (error.code || "");
+      throw Object.assign(new Error(m), { code: /locked/.test(m) ? "locked" : /bad_|28P01/.test(m) ? "invalid_argument" : "unavailable" });
+    }
+    // a wrong personal code comes back as {error} rather than an exception, so the failed attempt is kept for the lockout
+    if (isObj(data) && typeof data.error === "string") throw Object.assign(new Error(data.error), { code: data.error === "locked" || data.error === "retired" ? data.error : "invalid_argument" });
+    return data;
+  }
+  const rid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+  const deepMerge = (a, b) => { const o = { ...(a || {}) }; for (const [k, v] of Object.entries(b)) o[k] = isObj(v) && isObj(o[k]) ? deepMerge(o[k], v) : v; return o; };
+  const findDoc = (c, id) => c === "config" && id === "team" ? S.team : (S[c] || []).find((d) => d.id === id);
+  const strip = (d) => { const { id, ...rest } = d || {}; return rest; };
+  // same call shape the app used before (doc().set/update/delete, collection().add); admin writes only
+  db = {
+    doc(path) { const [c, id] = path.split("/"); return {
+      set: async (data) => { await rpc("admin_put", { p_admin: cred.admin, p_coll: c, p_id: id, p_data: data }); await refresh(); },
+      update: async (patch) => { await rpc("admin_put", { p_admin: cred.admin, p_coll: c, p_id: id, p_data: deepMerge(strip(findDoc(c, id)), patch) }); await refresh(); },
+      delete: async () => { await rpc("admin_del", { p_admin: cred.admin, p_coll: c, p_id: id }); await refresh(); },
+    }; },
+    collection(c) { return { add: async (data) => { await rpc("admin_put", { p_admin: cred.admin, p_coll: c, p_id: rid(), p_data: data }); await refresh(); } }; },
+  };
+  const COLS = ["members", "events", "stats", "history", "extgames", "profiles", "media", "gamemedia", "ledger", "dues", "rsvp", "notices"];
+  let refreshing = null;
+  async function refresh() {
+    if (refreshing) return refreshing;
+    refreshing = (async () => {
+      const rows = await rpc("team_read", { p_team: cred.team });
+      const by = Object.fromEntries(COLS.map((c) => [c, []]));
+      let team = { name: "" };
+      (rows || []).forEach((r) => { if (r.c === "config" && r.id === "team") team = r.d; else if (by[r.c]) by[r.c].push({ id: r.id, ...r.d }); });
+      Object.assign(S, by); S.team = team; S.loaded = true;
+      // a member marked 退団 (ob) is treated as logged out
+      myUid = cred.member && memberById(cred.member) && !memberById(cred.member).ob ? cred.member : null;
+      renderAll();
+    })();
+    try { await refreshing; } finally { refreshing = null; }
+  }
+  const mediaUrl = (p) => p.path && sb ? sb.storage.from("album").getPublicUrl(p.path).data.publicUrl : "";
+  const memberErr = (e) => toast(e?.code === "locked" ? "合言葉を続けて間違えたため、15分間ロックされています" : e?.code === "retired" ? "退団済みのためログインできません" : e?.code === "invalid_argument" ? "合言葉が違います。管理者に確認してください" : "通信できませんでした。電波の良い場所でもう一度お試しください");
+  const ui = { tab: store.get("tab") || "home", ledKind: "out", statKind: "bat", year: thisYear, myear: thisYear, kind: "", player: "", sort: { bat: "avg", pit: "era" }, game: "", entryDirty: false, editing: "", codes: new Set(), newCodes: {}, pl: "", pyear: "", uploading: 0 };
+
+  function toast(msg) {
+    const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+    document.body.appendChild(t); setTimeout(() => t.remove(), 2400);
+  }
+  function note(msg) { const n = $("#statusNote"); n.hidden = !msg; n.textContent = msg || ""; }
+  async function write(fn, okMsg) {
+    if (!db) { toast("保存できません：データに接続されていません"); return false; }
+    try { await fn(); if (okMsg) toast(okMsg); return true; }
+    catch (e) {
+      if (e && e.code === "invalid_argument") toast("この操作を行う権限がありません");
+      else if (e && e.code === "quota_exceeded") toast("保存容量の上限に達しました。古い記録を削除してください");
+      else toast("保存できませんでした。もう一度お試しください");
+      return false;
+    }
+  }
+  function setHTML(el, html) { if (el._h !== html) { el._h = html; el.innerHTML = html; } }
+  function armed(btn) {
+    if (btn.classList.contains("armed")) return true;
+    btn.classList.add("armed"); const orig = btn.textContent; btn.textContent = "本当に削除";
+    setTimeout(() => { btn.classList.remove("armed"); btn.textContent = orig; }, 3000);
+    return false;
+  }
+
+  // ---------- model helpers ----------
+  const memberById = (id) => S.members.find((m) => m.id === id);
+  const sortMembers = (arr) => arr.slice().sort((a, b) => (a.no ?? 999) - (b.no ?? 999) || a.name.localeCompare(b.name, "ja"));
+  // 休部 (hidden) members drop out of attendance, dues and entry lists; stats still resolve their names via memberById
+  const activeMembers = () => sortMembers(S.members.filter((m) => !m.ob && !m.hidden));
+  const mName = (id) => memberById(id)?.name || "（退団者）";
+  const mLabel = (m) => `${m.no != null ? "#" + esc(m.no) + " " : ""}${esc(m.name)}`;
+  const evById = (id) => S.events.find((e) => e.id === id);
+  const isGame = (e) => e.type === "game";
+  const kindOf = (e) => e.kind || (isGame(e) ? "練習試合" : "練習");
+  const evTitle = (e) => isGame(e) ? (e.opponent ? "vs " + esc(e.opponent) : esc(kindOf(e))) : "練習";
+  // r.o (synced from the portal) is the official W/L/D and wins over the score
+  const outcome = (r) => r?.o ? r.o : !r || r.us == null || r.them == null ? null : r.us > r.them ? "W" : r.us < r.them ? "L" : "D";
+  const OUT_JA = { W: "勝", L: "敗", D: "分" };
+  const ipStr = (outs) => { const w = Math.floor(outs / 3), f = outs % 3; return f ? `${w} ${f}/3` : String(w); };
+  const parseIp = (s) => { s = String(s || "").trim(); if (!s) return 0; const [w, f] = s.split("."); return (parseInt(w) || 0) * 3 + Math.min(2, parseInt(f) || 0); };
+  // rates are truncated (not rounded) to 3 places, matching teams.one
+  const pct = (v) => v == null ? "—" : (Math.floor(v * 1000 + 1e-9) / 1000).toFixed(3).replace(/^0(?=\.)/, "");
+  // legacy events stored a single "time" (集合・開始); treat it as the start time
+  const startOf = (e) => e.startTime || e.time || "";
+  const timeLine = (e) => [e.meetTime ? `集合 ${esc(e.meetTime)}` : "", startOf(e) || e.endTime ? `${esc(startOf(e))}〜${esc(e.endTime || "")}` : ""].filter(Boolean).join(" ・ ");
+  const sortedEvents = () => S.events.slice().sort((a, b) => (a.date + startOf(a)).localeCompare(b.date + startOf(b)));
+  // members who answer attendance (admins can mark coaches/managers etc. as not needing to)
+  const rsvpMembers = () => activeMembers().filter((m) => !m.noRsvp);
+  const inFilter = (e, year = ui.year, kind = ui.kind) => e && (!year || (e.date || "").startsWith(year)) && (!kind || resultKind(kindOf(e)) === kind);
+  // season totals imported from teams.one: one doc per year x game type
+  // games synced from the Peccino portal: one doc per game with every player's line (guest players keyed "g:<name>")
+  const extAsEvent = (g) => ({ id: "x:" + g.id, type: "game", kind: g.kind || "その他", date: g.date, opponent: g.opponent, place: g.place, result: g.result, ext: true });
+  const extIn = (year = ui.year, kind = ui.kind) => S.extgames.filter((g) => inFilter(extAsEvent(g), year, kind));
+  const histIn = (year = ui.year, kind = ui.kind) => S.history.filter((h) => (!year || h.year === year) && (!kind || resultKind(h.kind) === kind));
+  // legacy events carry a single cost/costLabel; newer ones carry costs: [{label, amount}]
+  const costsOf = (e) => Array.isArray(e.costs) ? e.costs.filter((c) => n0(c.amount)) : n0(e.cost) ? [{ label: e.costLabel || "グラウンド代", amount: n0(e.cost) }] : [];
+
+  // ---------- identity: claude.ai account <-> roster member, approved once by an admin ----------
+  const myRsvp = () => S.rsvp.find((r) => r.id === myUid);
+  function myState() { const m = myUid && memberById(myUid); return m && !m.ob ? { k: "ok", m } : { k: "none" }; }
+  // memberId -> answer for one event
+  function answersFor(eventId) {
+    const out = {};
+    S.members.forEach((m) => { const v = S.rsvp.find((x) => x.id === m.id)?.answers?.[eventId]; if (v) out[m.id] = v; });
+    return out;
+  }
+  const pendingClaims = () => [];
+  function fillNames() {}
+
+  // ---------- stats math ----------
+  const BAT = [["g", "試合"], ["pa", "打席"], ["ab", "打数"], ["h", "安打"], ["d2", "二塁打"], ["d3", "三塁打"], ["hr", "本塁打"], ["rbi", "打点"], ["r", "得点"], ["bb", "四死球"], ["so", "三振"], ["sb", "盗塁"], ["avg", "打率"], ["obp", "出塁率"], ["slg", "長打率"], ["ops", "OPS"]];
+  const PIT = [["g", "登板"], ["w", "勝"], ["l", "敗"], ["sv", "S"], ["outs", "投球回"], ["ph", "被安打"], ["er", "自責点"], ["pbb", "与四死球"], ["pso", "奪三振"], ["era", "防御率"], ["whip", "WHIP"]];
+  const BAT_IN = [["ab", "打数"], ["h", "安打"], ["d2", "二塁打"], ["d3", "三塁打"], ["hr", "本塁打"], ["rbi", "打点"], ["r", "得点"], ["bb", "四死球"], ["so", "三振"], ["sb", "盗塁"], ["sh", "犠打"], ["sf", "犠飛"]];
+  const PIT_IN = [["ip", "投球回"], ["ph", "被安打"], ["er", "自責点"], ["pbb", "与四死球"], ["pso", "奪三振"], ["dec", "勝敗"]];
+  const SUM_KEYS = ["ab", "h", "d2", "d3", "hr", "rbi", "r", "bb", "so", "sb", "sh", "sf", "outs", "ph", "er", "pbb", "pso"];
+  const LOW_BETTER = new Set(["era", "whip", "l", "so", "ph", "er", "pbb"]);
+  const n0 = (v) => Number(v) || 0;
+
+  function finish(a) {
+    const pa = a.ab + a.bb + a.sh + a.sf, tb = a.h + a.d2 + 2 * a.d3 + 3 * a.hr, obpDen = a.ab + a.bb + a.sf;
+    const obp = obpDen ? (a.h + a.bb) / obpDen : null, slg = a.ab ? tb / a.ab : null;
+    return { ...a, pa, avg: a.ab ? a.h / a.ab : null, obp, slg, ops: obp != null && slg != null ? obp + slg : null,
+      era: a.outs ? (a.er * 21) / a.outs : null, whip: a.outs ? ((a.ph + a.pbb) * 3) / a.outs : null };
+  }
+  const blank = (id) => ({ id, g: 0, pg: 0, w: 0, l: 0, sv: 0, ...Object.fromEntries(SUM_KEYS.map((k) => [k, 0])) });
+  // a line is one game (stats doc) or a season total (history; carries explicit g/pg/w/l/sv)
+  function addLine(a, s) {
+    a.g += s.g != null ? n0(s.g) : n0(s.ab) + n0(s.bb) + n0(s.sh) + n0(s.sf) > 0 ? 1 : 0;
+    SUM_KEYS.forEach((k) => (a[k] += n0(s[k])));
+    a.pg += s.pg != null ? n0(s.pg) : n0(s.outs) > 0 || n0(s.ph) + n0(s.er) + n0(s.pbb) > 0 ? 1 : 0;
+    a.w += s.w != null ? n0(s.w) : s.dec === "W" ? 1 : 0;
+    a.l += s.l != null ? n0(s.l) : s.dec === "L" ? 1 : 0;
+    a.sv += s.sv != null ? n0(s.sv) : s.dec === "S" ? 1 : 0;
+  }
+  function aggregate(year = ui.year, kind = ui.kind) {
+    const per = {};
+    S.stats.forEach((s) => { if (!inFilter(evById(s.eventId), year, kind)) return; addLine((per[s.memberId] ||= blank(s.memberId)), s); });
+    histIn(year, kind).forEach((h) => Object.entries(h.players || {}).forEach(([mid, s]) => addLine((per[mid] ||= blank(mid)), s)));
+    extIn(year, kind).forEach((g) => Object.entries(g.lines || {}).forEach(([mid, s]) => { if (!mid.startsWith("g:")) addLine((per[mid] ||= blank(mid)), s); }));
+    return Object.values(per).map(finish);
+  }
+  function teamTotals(year = ui.year, kind = ui.kind) {
+    const a = blank("team");
+    S.stats.forEach((s) => { if (inFilter(evById(s.eventId), year, kind)) addLine(a, s); });
+    histIn(year, kind).forEach((h) => Object.values(h.players || {}).forEach((s) => addLine(a, s)));
+    extIn(year, kind).forEach((g) => Object.values(g.lines || {}).forEach((s) => addLine(a, s)));
+    return finish(a);
+  }
+  function teamRecord(year = ui.year, kind = ui.kind) {
+    const r = { n: 0, w: 0, l: 0, d: 0, rs: 0, ra: 0 };
+    S.events.forEach((e) => {
+      if (!isGame(e) || e.extId || !inFilter(e, year, kind)) return;
+      const o = outcome(e.result); if (!o) return;
+      r.n++; r[o.toLowerCase()]++; r.rs += e.result.us; r.ra += e.result.them;
+    });
+    extIn(year, kind).forEach((g) => { const o = outcome(g.result); if (!o) return; r.n++; r[o.toLowerCase()]++; r.rs += g.result.us; r.ra += g.result.them; });
+    histIn(year, kind).forEach((h) => { const x = h.record || {}; ["n", "w", "l", "d", "rs", "ra"].forEach((k) => (r[k] += n0(x[k]))); });
+    r.wpct = r.w + r.l ? r.w / (r.w + r.l) : null;
+    return r;
+  }
+  function fmt(k, v) {
+    if (v == null) return "—";
+    if (["avg", "obp", "slg", "ops"].includes(k)) return pct(v);
+    if (k === "era" || k === "whip") return v.toFixed(2);
+    if (k === "outs") return ipStr(v);
+    return v;
+  }
+  function years() {
+    const ys = new Set([...S.events.map((e) => (e.date || "").slice(0, 4)), ...S.history.map((h) => h.year), ...S.extgames.map((g) => (g.date || "").slice(0, 4))].filter(Boolean));
+    ys.add(thisYear);
+    return [...ys].sort().reverse();
+  }
+
+  // ---------- 規定打席・規定投球回 (admin-set multipliers of team games) ----------
+  const rules = () => ({ paMul: S.team.paMul ?? 1.7, ipMul: S.team.ipMul ?? 0.5 });
+  function quals(year = ui.year, kind = ui.kind) {
+    const games = teamRecord(year, kind).n, r = rules();
+    return { games, pa: games * r.paMul, outs: games * r.ipMul * 3, ...r };
+  }
+  const qualText = (q) => `規定打席 ${Math.ceil(q.pa * 10) / 10}（${q.games}試合×${q.paMul}）・規定投球回 ${Math.round(q.games * q.ipMul * 10) / 10}回（${q.games}試合×${q.ipMul}）`;
+  const qBat = (x, q) => x.pa > 0 && x.pa >= q.pa, qPit = (x, q) => x.outs > 0 && x.outs >= q.outs;
+
+  // ---------- attendance reminders / late-change alerts ----------
+  const daysUntil = (date) => Math.round((new Date(date + "T00:00:00") - new Date(todayStr() + "T00:00:00")) / 864e5);
+  const REMIND_DAYS = 10, LATE_DAYS = 6;
+  const ANS_JA = { yes: "参加", maybe: "未定", no: "不参加", "": "未回答" };
+  const needsAnswer = (e, mid) => { if (e.cancelled) return false; const d = daysUntil(e.date); const v = answersFor(e.id)[mid]; return d >= 0 && d <= REMIND_DAYS && v !== "yes" && v !== "no"; };
+  function changeAlerts() {
+    const out = [];
+    S.members.forEach((m) => { const r = S.rsvp.find((x) => x.id === m.id); (r?.changes || []).forEach((c) => out.push({ ...c, memberId: m.id })); });
+    return out.filter((c) => evById(c.eventId)).sort((a, b) => b.at.localeCompare(a.at));
+  }
+  const unreadAlerts = () => changeAlerts().filter((c) => !S.team.alertsSeenAt || c.at > S.team.alertsSeenAt).length;
+
+  // ---------- header + nav ----------
+  // members marked 休部 or 出欠回答なし don't see upcoming schedule or accounting (admins always do)
+  const locked = () => !isAdmin && myState().k !== "ok";
+  const restricted = () => { if (isAdmin) return false; const st = myState(); return st.k === "ok" && (st.m.hidden || st.m.noRsvp); };
+  const memberTabs = () => MEMBER_TABS.filter(([k]) => !(restricted() && (k === "sched" || k === "money")));
+  function renderNav() {
+    const tabs = [...memberTabs(), ...(isAdmin ? ADMIN_TABS : [])];
+    if (!tabs.some(([k]) => k === ui.tab)) ui.tab = "home";
+    setHTML($("#tabs"), memberTabs().map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === ui.tab}">${l}</button>`).join("")
+      + (isAdmin ? `<span class="sep">管理</span>` + ADMIN_TABS.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${k === ui.tab}">${l}${k === "a-alerts" && unreadAlerts() ? ` <span class="role">${unreadAlerts()}</span>` : ""}</button>`).join("") : ""));
+    const shown = locked() ? "home" : ui.tab;
+    document.body.classList.toggle("locked", locked());
+    $$("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + shown));
+    $("#roleBadge").hidden = !isAdmin;
+    $$(".w-only").forEach((el) => (el.hidden = !isAdmin));
+  }
+  function showTab(t) { ui.tab = t; store.set("tab", t); renderNav(); window.scrollTo({ top: 0 }); }
+  function renderHeader() {
+    $("#teamName").textContent = S.team.name || "マイチーム";
+    $("#seasonLabel").textContent = `${thisYear} SEASON`;
+    const r = teamRecord(thisYear, "");
+    $("#recW").textContent = r.w; $("#recL").textContent = r.l; $("#recD").textContent = r.d;
+    if (document.activeElement !== $("#teamInput")) $("#teamInput").value = S.team.name || "";
+  }
+
+  // ---------- shared: event card (member view) ----------
+  function eventCard(e, past) {
+    const d = new Date(e.date + "T00:00:00"), wd = d.getDay();
+    const att = answersFor(e.id);
+    const by = { yes: [], maybe: [], no: [], none: [] };
+    rsvpMembers().forEach((m) => { const v = att[m.id]; (by[v] || by.none).push(m.id); });
+    const st = myState();
+    const mine = st.k === "ok" ? att[st.m.id] || "" : "";
+    const o = outcome(e.result);
+    const names = (arr) => arr.length ? arr.map((id) => esc(mName(id))).join("、") : "—";
+    const meta = [timeLine(e), esc(e.place || ""), e.fee ? `参加費 ${yen(e.fee)}` : ""].filter(Boolean).join(" ・ ");
+    const need = !past && st.k === "ok" && !st.m.noRsvp && needsAnswer(e, st.m.id);
+    if (e.cancelled) return `<article class="ev off" data-id="${esc(e.id)}">
+      <div class="ev-date"><div class="md">${d.getMonth() + 1}/${d.getDate()}</div><div class="wd ${wd === 0 ? "sun" : wd === 6 ? "sat" : ""}">${WD[wd]}</div></div>
+      <div class="ev-body">
+        <div class="ev-title"><span class="pill off">中止</span><span class="pill ${isGame(e) ? "game" : "practice"}">${esc(kindOf(e))}</span><span>${evTitle(e)}</span></div>
+        ${meta ? `<div class="small muted">${meta}</div>` : ""}
+        <div class="small">この予定は中止になりました。</div>
+      </div>
+    </article>`;
+    const late = !past && daysUntil(e.date) <= LATE_DAYS;
+    return `<article class="ev ${need ? "need" : ""}" data-id="${esc(e.id)}">
+      <div class="ev-date"><div class="md">${d.getMonth() + 1}/${d.getDate()}</div><div class="wd ${wd === 0 ? "sun" : wd === 6 ? "sat" : ""}">${WD[wd]}</div></div>
+      <div class="ev-body">
+        <div class="ev-title"><span class="pill ${isGame(e) ? "game" : "practice"}">${esc(kindOf(e))}</span><span>${evTitle(e)}</span>${o ? `<span class="result ${o}">${e.result.us} - ${e.result.them} ${OUT_JA[o]}</span>` : ""}</div>
+        ${meta ? `<div class="small muted">${meta}</div>` : ""}
+        ${e.note ? `<div class="small">${esc(e.note)}</div>` : ""}
+        <div class="tally"><span class="t-yes">参加 <b>${by.yes.length}</b></span><span class="t-maybe">未定 <b>${by.maybe.length}</b></span><span class="t-no">不参加 <b>${by.no.length}</b></span><span class="muted">未回答 <b>${by.none.length}</b></span></div>
+        ${past ? "" : `<div class="rsvp" role="group" aria-label="あなたの出欠">
+          ${[["yes", "参加"], ["maybe", "未定"], ["no", "不参加"]].map(([v, l]) => `<button type="button" data-action="rsvp" data-v="${v}" aria-pressed="${mine === v}" ${st.k !== "ok" || st.m.noRsvp ? "disabled" : ""}>${l}</button>`).join("")}
+        </div>${late && st.k === "ok" && !st.m.noRsvp ? `<div class="late">活動日${LATE_DAYS}日前を過ぎているため、参加・不参加の変更は管理者に通知されます</div>` : ""}`}
+        <details><summary>回答の内訳</summary>
+          <div class="who">
+            <div><span class="k t-yes">参加</span>${names(by.yes)}</div>
+            <div><span class="k t-maybe">未定</span>${names(by.maybe)}</div>
+            <div><span class="k t-no">不参加</span>${names(by.no)}</div>
+            <div><span class="k muted">未回答</span>${names(by.none)}</div>
+          </div>
+        </details>
+      </div>
+    </article>`;
+  }
+
+  // ---------- HOME ----------
+  function renderMeBar() {
+    const st = myState(), bar = $("#meBar");
+    if (!S.loaded) return setHTML(bar, `<span class="small muted">読み込み中…</span>`);
+    if (st.k === "ok") return setHTML(bar, `${st.m.noRsvp ? `<span class="badge">出欠回答なし</span>` : `<span class="badge ok">ログイン中</span>`}<span style="flex:1 1 160px"><b>${mLabel(st.m)}</b>${st.m.noRsvp ? " は出欠回答が不要なメンバーです" : " として出欠を回答できます"}</span><button class="btn small" data-action="member-logout">ログアウト</button>`);
+    const list = activeMembers();
+    if (!list.length) return setHTML(bar, `<span class="small muted">管理者がメンバーを登録するまでお待ちください。</span>`);
+    const prev = $("#claimSel")?.value || "";
+    setHTML(bar, `<span class="badge">初回のみ</span><label for="claimSel" class="small" style="font-weight:700">自分の名前</label>
+      <select id="claimSel"><option value="">選択してください</option>${list.map((m) => `<option value="${esc(m.id)}">${mLabel(m)}</option>`).join("")}</select>
+      <input type="password" id="claimCode" placeholder="個人の合言葉" autocomplete="off" style="width:9em">
+      <button class="btn primary" data-action="claim">ログイン</button>
+      <span class="small muted" style="flex-basis:100%">ログインすると、予定や成績などが表示されます。個人の合言葉は管理者から受け取ってください。一度ログインすると、この端末では次回から入力不要です。</span>`);
+    if (list.some((m) => m.id === prev)) $("#claimSel").value = prev;
+  }
+  const sortedNotices = () => S.notices.slice().sort((a, b) => (!!b.pinned - !!a.pinned) || (b.date || "").localeCompare(a.date || ""));
+  function noticeCard(n, admin) {
+    const isNew = n.date && Date.now() - new Date(n.date).getTime() < 7 * 864e5;
+    return `<article class="notice ${n.pinned ? "pinned" : ""}" data-id="${esc(n.id)}">
+      <div class="row spread"><div class="row">${n.pinned ? `<span class="badge new">固定</span>` : isNew ? `<span class="badge new">NEW</span>` : ""}<b>${esc(n.title)}</b></div><span class="date">${n.date ? esc(n.date.slice(0, 10).replace(/-/g, "/")) : ""}</span></div>
+      ${n.body ? `<div class="body">${esc(n.body)}</div>` : ""}
+      ${admin ? `<div class="row" style="margin-top:6px"><button class="btn small" data-action="pin-notice">${n.pinned ? "固定を外す" : "固定する"}</button><button class="btn small danger" data-action="del-notice">削除</button></div>` : ""}
+    </article>`;
+  }
+  function leaderBox(title, rows, key, low, unit = "") {
+    const list = rows.filter((r) => r[key] != null && (low || r[key] > 0)).sort((a, b) => (a[key] - b[key]) * (low ? 1 : -1)).slice(0, 3);
+    return `<div class="lb"><h3>${title}</h3>${list.length ? `<ol>${list.map((r, i) => `<li><span><span class="rk">${i + 1}</span>${esc(mName(r.id))}</span><b>${fmt(key, r[key])}${unit}</b></li>`).join("")}</ol>` : `<div class="small muted">記録なし</div>`}</div>`;
+  }
+  function renderHome() {
+    renderMeBar();
+    $("#homeEventsWrap").hidden = restricted();
+    const st = myState(), box = $("#remindBox");
+    const due = st.k === "ok" && !st.m.noRsvp ? sortedEvents().filter((e) => needsAnswer(e, st.m.id)) : [];
+    box.hidden = !due.length;
+    setHTML(box, due.length ? `<div class="remind"><b class="t">出欠の回答をお願いします</b><div class="small">活動日${REMIND_DAYS}日前を過ぎた予定で、出欠が未定または未回答のものがあります。</div>
+      ${due.map((e) => `<div class="small">・${esc(mdw(e.date))} ${esc(kindOf(e))} ${evTitle(e)}（あと${daysUntil(e.date)}日・現在「${ANS_JA[answersFor(e.id)[st.m.id] || ""]}」）</div>`).join("")}</div>` : "");
+    const ns = sortedNotices().slice(0, 4);
+    setHTML($("#homeNotices"), ns.length ? `<h2>お知らせ</h2>${ns.map((n) => noticeCard(n, false)).join("")}` : "");
+    const t = todayStr();
+    const up = sortedEvents().filter((e) => e.date >= t).slice(0, 3);
+    $("#homeEvents").innerHTML = up.length ? up.map((e) => eventCard(e, false)).join("") : `<div class="empty">${S.loaded ? "予定はまだ登録されていません。" : "読み込み中…"}</div>`;
+
+    $("#homeTeamTitle").textContent = `${thisYear}年のチーム成績`;
+    const r = teamRecord(thisYear, ""), tt = teamTotals(thisYear, "");
+    setHTML($("#homeTeam"), `<div><span>試合</span><b>${r.n}</b></div><div><span>勝-敗-分</span><b>${r.w}-${r.l}-${r.d}</b></div><div><span>勝率</span><b>${pct(r.wpct)}</b></div><div><span>得点 / 失点</span><b>${r.rs} / ${r.ra}</b></div><div><span>チーム打率</span><b>${pct(tt.avg)}</b></div><div><span>チーム防御率</span><b>${fmt("era", tt.era)}</b></div>`);
+
+    $("#homeLeadTitle").textContent = `${thisYear}年 個人成績トップ3`;
+    const rows = aggregate(thisYear, "");
+    const q = quals(thisYear, "");
+    const avgQ = rows.filter((x) => qBat(x, q)), eraQ = rows.filter((x) => qPit(x, q));
+    $("#homeQualNote").textContent = `打率・防御率は規定到達者が対象です（${qualText(q)}）。`;
+    setHTML($("#homeLeaders"), [
+      leaderBox("打率", avgQ, "avg"), leaderBox("本塁打", rows, "hr", false, "本"), leaderBox("打点", rows, "rbi"),
+      leaderBox("盗塁", rows, "sb"), leaderBox("防御率", eraQ, "era", true), leaderBox("奪三振", rows, "pso"),
+    ].join(""));
+  }
+
+  // ---------- スケジュール ----------
+  function renderSchedule() {
+    const t = todayStr(), all = sortedEvents();
+    const up = all.filter((e) => e.date >= t), past = all.filter((e) => e.date < t).reverse();
+    $("#upcoming").innerHTML = up.length ? up.map((e) => eventCard(e, false)).join("") : `<div class="empty">${S.loaded ? "今後の予定はまだ登録されていません。" : "読み込み中…"}</div>`;
+    $("#pastWrap").hidden = !past.length;
+    $("#past").innerHTML = past.map((e) => eventCard(e, true)).join("");
+  }
+
+  // ---------- filters (shared by 個人成績 / チーム成績) ----------
+  function renderFilters() {
+    const ys = years();
+    $$(".yearSel").forEach((sel) => { setHTML(sel, `<option value="">通算</option>` + ys.map((y) => `<option value="${y}">${y}年</option>`).join("")); sel.value = ui.year; });
+    const kinds = [["", "全試合"], ...RESULT_KINDS.map((k) => [k, k])];
+    $$(".kindFilter").forEach((el) => setHTML(el, kinds.map(([k, l]) => `<button type="button" class="fchip" data-kind="${esc(k)}" aria-pressed="${ui.kind === k}">${l}</button>`).join("")));
+  }
+
+  // ---------- 個人成績 ----------
+  function renderPersonal() {
+    const kind = ui.statKind, cols = kind === "bat" ? BAT : PIT, sk = ui.sort[kind];
+    const q = quals();
+    $("#qualInfo").textContent = qualText(q);
+    const rows = aggregate().filter((a) => kind === "bat" ? a.pa > 0 : a.pg > 0).filter((a) => !$("#qualOnly").checked || (kind === "bat" ? qBat(a, q) : qPit(a, q))).map((a) => kind === "pit" ? { ...a, g: a.pg } : a);
+    const dir = LOW_BETTER.has(sk) ? 1 : -1;
+    rows.sort((x, y) => { const a = x[sk], b = y[sk]; if (a == null && b == null) return 0; if (a == null) return 1; if (b == null) return -1; return (a - b) * dir; });
+    $("#leaders").innerHTML = rows.length
+      ? `<table><thead><tr><th class="name">選手</th>${cols.map(([k, l]) => `<th class="sortable ${k === sk ? "sorted" : ""}" data-sort="${k}">${l}${k === sk ? (dir < 0 ? " ▼" : " ▲") : ""}</th>`).join("")}</tr></thead>
+        <tbody>${rows.map((r) => { const m = memberById(r.id); return `<tr><td class="name">${m?.no != null ? `<span class="num">${esc(m.no)}</span>` : ""}<button class="pname" data-player="${esc(r.id)}">${esc(mName(r.id))}</button></td>${cols.map(([k]) => `<td>${fmt(k, r[k])}</td>`).join("")}</tr>`; }).join("")}</tbody></table>`
+      : `<div class="empty" style="border:0">この条件の${kind === "bat" ? "打撃" : "投手"}成績はありません。${$("#qualOnly").checked ? "「規定到達者のみ」を外すと全員を表示します。" : ""}</div>`;
+
+    const box = $("#gameLog");
+    if (!ui.player || !memberById(ui.player)) { box.innerHTML = ""; return; }
+    const lines = [...S.stats.filter((s) => s.memberId === ui.player && inFilter(evById(s.eventId))).map((s) => ({ s, e: evById(s.eventId) })),
+      ...extIn().filter((g) => g.lines?.[ui.player]).map((g) => ({ s: g.lines[ui.player], e: extAsEvent(g) }))].sort((a, b) => b.e.date.localeCompare(a.e.date));
+    const bat = lines.filter(({ s }) => n0(s.ab) + n0(s.bb) > 0), pit = lines.filter(({ s }) => n0(s.outs) > 0 || n0(s.ph) + n0(s.er) + n0(s.pbb) > 0);
+    const gcell = (e) => `<td class="l">${esc(mdw(e.date))}</td><td class="l">${evTitle(e)}</td><td class="l">${esc(kindOf(e))}</td>`;
+    // imported season totals, newest year first, shown below the per-game rows
+    const hist = histIn().filter((h) => h.players?.[ui.player]).sort((a, b) => b.year.localeCompare(a.year) || a.kind.localeCompare(b.kind)).map((h) => ({ s: h.players[ui.player], h }));
+    const hcell = (h, n) => `<td class="l">${esc(h.year)}年</td><td class="l">${n}試合の合計</td><td class="l">${esc(h.kind)}</td>`;
+    const hBat = hist.filter(({ s }) => n0(s.g) > 0), hPit = hist.filter(({ s }) => n0(s.pg) > 0);
+    const DEC = { W: "勝", L: "敗", S: "S" };
+    box.innerHTML = `<div class="row spread"><h2>${esc(mName(ui.player))} の試合別成績</h2><button class="link" data-player="">閉じる</button></div>
+      ${kind === "bat"
+        ? (bat.length + hBat.length ? `<div class="tbl-wrap"><table><thead><tr><th class="l">日付</th><th class="l">相手</th><th class="l">種別</th>${BAT_IN.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>${bat.map(({ s, e }) => `<tr>${gcell(e)}${BAT_IN.map(([k]) => `<td>${n0(s[k])}</td>`).join("")}</tr>`).join("")}${hBat.map(({ s, h }) => `<tr class="hist">${hcell(h, n0(s.g))}${BAT_IN.map(([k]) => `<td>${n0(s[k])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>` : `<div class="empty">打撃の記録はありません。</div>`)
+        : (pit.length + hPit.length ? `<div class="tbl-wrap"><table><thead><tr><th class="l">日付</th><th class="l">相手</th><th class="l">種別</th><th>投球回</th><th>被安打</th><th>自責点</th><th>与四死球</th><th>奪三振</th><th>勝敗</th></tr></thead><tbody>${pit.map(({ s, e }) => `<tr>${gcell(e)}<td>${ipStr(n0(s.outs))}</td><td>${n0(s.ph)}</td><td>${n0(s.er)}</td><td>${n0(s.pbb)}</td><td>${n0(s.pso)}</td><td>${DEC[s.dec] || ""}</td></tr>`).join("")}${hPit.map(({ s, h }) => `<tr class="hist">${hcell(h, n0(s.pg))}<td>${ipStr(n0(s.outs))}</td><td>${n0(s.ph)}</td><td>${n0(s.er)}</td><td>${n0(s.pbb)}</td><td>${n0(s.pso)}</td><td>${n0(s.w)}勝${n0(s.l)}敗${n0(s.sv) ? n0(s.sv) + "S" : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">投手の記録はありません。</div>`)}
+      ${hist.length ? `<p class="small muted" style="margin:0">網掛けの行は teams.one から取り込んだ年度・種別ごとの合計です。</p>` : ""}`;
+  }
+
+  // ---------- チーム成績 ----------
+  function renderTeam() {
+    const r = teamRecord(), tt = teamTotals();
+    setHTML($("#teamKpis"), `<div><span>試合</span><b>${r.n}</b></div><div><span>勝-敗-分</span><b>${r.w}-${r.l}-${r.d}</b></div><div><span>勝率</span><b>${pct(r.wpct)}</b></div><div><span>得点</span><b>${r.rs}</b></div><div><span>失点</span><b>${r.ra}</b></div><div><span>得失点差</span><b class="${r.rs - r.ra > 0 ? "plus" : r.rs - r.ra < 0 ? "minus" : ""}">${r.rs - r.ra > 0 ? "+" : ""}${r.rs - r.ra}</b></div>`);
+    const kinds = ui.kind ? [ui.kind] : RESULT_KINDS;
+    const kr = kinds.map((k) => [k, teamRecord(ui.year, k)]).filter(([, x]) => x.n > 0);
+    setHTML($("#teamByKind"), kr.length ? `<table><thead><tr><th class="l">種別</th><th>試合</th><th>勝</th><th>敗</th><th>分</th><th>勝率</th><th>得点</th><th>失点</th><th>平均得点</th><th>平均失点</th></tr></thead><tbody>
+      ${kr.map(([k, x]) => `<tr><td class="l">${esc(k)}</td><td>${x.n}</td><td>${x.w}</td><td>${x.l}</td><td>${x.d}</td><td>${pct(x.wpct)}</td><td>${x.rs}</td><td>${x.ra}</td><td>${(x.rs / x.n).toFixed(1)}</td><td>${(x.ra / x.n).toFixed(1)}</td></tr>`).join("")}
+      ${kr.length > 1 ? `<tr class="total"><td class="l">合計</td><td>${r.n}</td><td>${r.w}</td><td>${r.l}</td><td>${r.d}</td><td>${pct(r.wpct)}</td><td>${r.rs}</td><td>${r.ra}</td><td>${(r.rs / r.n).toFixed(1)}</td><td>${(r.ra / r.n).toFixed(1)}</td></tr>` : ""}
+      </tbody></table>` : `<div class="empty" style="border:0">結果が登録された試合はまだありません。</div>`);
+    setHTML($("#teamTotals"), tt.pa || tt.outs ? `<table><thead><tr><th class="l">打撃</th><th>打数</th><th>安打</th><th>本塁打</th><th>打点</th><th>盗塁</th><th>打率</th><th>出塁率</th><th>OPS</th></tr></thead>
+      <tbody><tr><td class="l">チーム</td><td>${tt.ab}</td><td>${tt.h}</td><td>${tt.hr}</td><td>${tt.rbi}</td><td>${tt.sb}</td><td>${pct(tt.avg)}</td><td>${pct(tt.obp)}</td><td>${pct(tt.ops)}</td></tr></tbody>
+      <thead><tr><th class="l">投手</th><th>投球回</th><th>被安打</th><th>自責点</th><th>与四死球</th><th>奪三振</th><th>防御率</th><th>WHIP</th><th></th></tr></thead>
+      <tbody><tr><td class="l">チーム</td><td>${ipStr(tt.outs)}</td><td>${tt.ph}</td><td>${tt.er}</td><td>${tt.pbb}</td><td>${tt.pso}</td><td>${fmt("era", tt.era)}</td><td>${fmt("whip", tt.whip)}</td><td></td></tr></tbody></table>`
+      : `<div class="empty" style="border:0">個人成績が入力されると、チームの合計がここに出ます。</div>`);
+    const gs = [...sortedEvents().filter((e) => isGame(e) && !e.extId && inFilter(e) && outcome(e.result)), ...extIn().map(extAsEvent).filter((e) => outcome(e.result))].sort((a, b) => b.date.localeCompare(a.date));
+    const hs = histIn().filter((h) => n0(h.record?.n)).sort((a, b) => b.year.localeCompare(a.year) || a.kind.localeCompare(b.kind));
+    setHTML($("#teamGames"), gs.length + hs.length ? `<div class="list">${gs.map((e) => { const o = outcome(e.result); return `<div class="li"><span class="date">${esc(mdw(e.date))}</span><span class="pill game">${esc(kindOf(e))}</span><div class="grow">${evTitle(e)}</div><span class="result ${o}">${e.result.us} - ${e.result.them} ${OUT_JA[o]}</span></div>`; }).join("")}
+      ${hs.map((h) => { const x = h.record; return `<div class="li"><span class="date">${esc(h.year)}年</span><span class="pill game">${esc(h.kind)}</span><div class="grow">${n0(x.n)}試合 <span class="small muted">teams.one から取り込み</span></div><span class="amt">${n0(x.w)}勝${n0(x.l)}敗${n0(x.d)}分 <span class="small muted">${n0(x.rs)}得点 ${n0(x.ra)}失点</span></span></div>`; }).join("")}</div>`
+      : `<div class="empty">この条件の試合結果はありません。</div>`);
+  }
+
+  // ---------- 会計 ----------
+  const CATS = { out: ["グラウンド代", "審判・連盟費", "ボール・用具", "大会参加費", "飲食・懇親会", "その他"], in: ["協賛・寄付", "その他"] };
+  function txns(year) {
+    const t = [];
+    const inY = (d) => !year || (d || "").startsWith(year);
+    S.ledger.forEach((l) => inY(l.date) && t.push({ date: l.date, cat: l.category, memo: l.memo || "", amt: (l.kind === "in" ? 1 : -1) * n0(l.amount), ledgerId: l.id }));
+    S.events.forEach((e) => {
+      if (!inY(e.date) || e.cancelled) return;
+      const title = `${mdw(e.date)} ${kindOf(e)}${e.opponent ? " vs " + e.opponent : ""}`;
+      costsOf(e).forEach((c) => t.push({ date: e.date, cat: c.label || "その他", memo: title, amt: -n0(c.amount) }));
+      const paid = Object.values(e.feePaid || {}).filter(Boolean).length;
+      if (n0(e.fee) && paid) t.push({ date: e.date, cat: "参加費", memo: `${title}（${paid}人）`, amt: n0(e.fee) * paid });
+    });
+    S.dues.forEach((d) => {
+      const date = (d.created || "").slice(0, 10); if (!inY(date)) return;
+      const paid = Object.values(d.paid || {}).filter(Boolean).length;
+      if (paid) t.push({ date, cat: "部費", memo: `${d.label}（${paid}人）`, amt: n0(d.amount) * paid });
+    });
+    return t.sort((a, b) => b.date.localeCompare(a.date));
+  }
+  function renderMoney() {
+    const ys = [...new Set([...years(), ...S.ledger.map((l) => (l.date || "").slice(0, 4))].filter(Boolean))].sort().reverse();
+    const sel = $("#yearSelM");
+    setHTML(sel, ys.map((y) => `<option value="${y}">${y}年</option>`).join("") + `<option value="">全期間</option>`);
+    sel.value = ui.myear;
+    $("#moneyTitle").textContent = ui.myear ? `${ui.myear}年の会計` : "全期間の会計";
+    const t = txns(ui.myear);
+    const inc = t.filter((x) => x.amt > 0).reduce((s, x) => s + x.amt, 0), out = -t.filter((x) => x.amt < 0).reduce((s, x) => s + x.amt, 0);
+    const bal = txns("").reduce((s, x) => s + x.amt, 0);
+    setHTML($("#moneyKpis"), `<div><span>収入</span><b class="plus">${yen(inc)}</b></div><div><span>支出</span><b class="minus">${yen(out)}</b></div><div><span>収支</span><b>${yen(inc - out)}</b></div><div><span>現在の残高（累計）</span><b class="${bal < 0 ? "minus" : ""}">${yen(bal)}</b></div>`);
+    const cats = {}; t.forEach((x) => { const k = (x.amt > 0 ? "in:" : "out:") + x.cat; cats[k] = (cats[k] || 0) + x.amt; });
+    const ck = Object.keys(cats).sort((a, b) => a.localeCompare(b) || Math.abs(cats[b]) - Math.abs(cats[a]));
+    setHTML($("#moneyCats"), ck.length ? `<table><thead><tr><th class="l">区分</th><th class="l">項目</th><th>金額</th></tr></thead><tbody>${ck.map((k) => `<tr><td class="l">${k.startsWith("in:") ? "収入" : "支出"}</td><td class="l">${esc(k.slice(k.indexOf(":") + 1))}</td><td class="${cats[k] > 0 ? "plus" : "minus"}">${yen(Math.abs(cats[k]))}</td></tr>`).join("")}</tbody></table>`
+      : `<div class="empty" style="border:0">この期間の入出金はありません。</div>`);
+
+    const dues = S.dues.filter((d) => !ui.myear || (d.created || "").startsWith(ui.myear));
+    $("#dues").innerHTML = duesHTML(dues, false) || `<div class="empty">この期間の部費徴収はありません。</div>`;
+    $("#ledger").innerHTML = t.length ? `<div class="list">${t.map((x) => ledgerRow(x, false)).join("")}</div>` : `<div class="empty">この期間の明細はありません。</div>`;
+  }
+  function duesHTML(list, editable) {
+    const mem = activeMembers();
+    return list.slice().sort((a, b) => (b.created || "").localeCompare(a.created || "")).map((d) => {
+      const paid = d.paid || {}; const n = mem.filter((m) => paid[m.id]).length;
+      return `<div class="form" data-id="${esc(d.id)}" style="gap:10px">
+        <div class="row spread"><div><b>${esc(d.label)}</b> <span class="small muted">1人 ${yen(n0(d.amount))}</span></div>
+          <div class="small"><b class="amt">${n}</b> / ${mem.length}人 納入 ・ <span class="amt">${yen(n * n0(d.amount))}</span></div></div>
+        <div class="dues-grid">${mem.map((m) => `<button type="button" class="chip" data-action="toggle-paid" data-m="${esc(m.id)}" aria-pressed="${!!paid[m.id]}" ${editable ? "" : "disabled"}>${paid[m.id] ? "✓ " : ""}${esc(m.name)}</button>`).join("")}</div>
+        ${editable ? `<div><button class="btn small danger" type="button" data-action="del-dues">この徴収を削除</button></div>` : ""}
+      </div>`;
+    }).join("");
+  }
+  function ledgerRow(x, editable) {
+    return `<div class="li" ${x.ledgerId ? `data-id="${esc(x.ledgerId)}"` : ""}>
+        <span class="date">${esc(x.date.replace(/-/g, "/"))}</span>
+        <div class="grow"><b>${esc(x.cat)}</b> <span class="small muted">${esc(x.memo)}</span></div>
+        <span class="amt ${x.amt > 0 ? "plus" : "minus"}">${x.amt > 0 ? "+" : "−"}${yen(Math.abs(x.amt))}</span>
+        ${editable && x.ledgerId ? `<button class="btn small danger" type="button" data-action="del-ledger">削除</button>` : ""}
+      </div>`;
+  }
+  function fillCats() { $("#ledCat").innerHTML = CATS[ui.ledKind].map((c) => `<option>${c}</option>`).join(""); }
+
+  // ---------- 管理：メンバー登録 ----------
+  function renderAdminMembers() {
+    const list = pendingClaims();
+    $("#pendingWrap").hidden = !list.length;
+    setHTML($("#pending"), list.length ? `<div class="list">${list.map((r) => { const m = memberById(r.memberId); return `<div class="li" data-id="${esc(r.id)}">
+        <div class="grow"><b data-uid="${esc(r.id)}">…</b> <span class="small muted">（claude.ai アカウント）が</span> <b>${mLabel(m)}</b> <span class="small muted">として申請${m.uid ? "（承認すると現在の連携と置き換わります）" : ""}</span></div>
+        <button class="btn primary small" type="button" data-action="approve">承認</button>
+        <button class="btn danger small" type="button" data-action="reject">却下</button>
+      </div>`; }).join("")}</div>` : "");
+    const mem = sortMembers(S.members).sort((a, b) => !!a.ob - !!b.ob || !!a.hidden - !!b.hidden);
+    setHTML($("#memList"), mem.length ? `<div class="list">${mem.map((m) => `<div class="li" data-id="${esc(m.id)}">
+        <span class="num" style="min-width:2.5em;font-size:16px">${m.no != null ? esc(m.no) : "—"}</span>
+        <div class="grow"><b>${esc(m.name)}</b> <span class="small muted">${esc(m.pos || "")}</span>${m.ob ? " <span class=\"badge\">退団</span>" : m.hidden ? " <span class=\"badge wait\">休部中</span>" : ""}</div>
+        ${m.ob ? `<button class="btn small" type="button" data-action="toggle-ob">退団を取り消す</button>` : `<button class="btn small" type="button" data-action="toggle-hidden">${m.hidden ? "復帰する" : "休部にする"}</button>
+        <button class="btn small" type="button" data-action="toggle-ob">退団</button>
+        <button class="chip" type="button" data-action="toggle-rsvp-req" aria-pressed="${!m.noRsvp}" title="タップで切り替え">${m.noRsvp ? "出欠回答なし" : "✓ 出欠回答あり"}</button>
+        ${ui.codes.has(m.id) ? `<span class="badge ok">合言葉 設定済み</span>` : `<span class="badge">合言葉 未設定</span>`}${ui.newCodes[m.id] ? `<span class="newcode" title="この画面でだけ表示されます">${esc(ui.newCodes[m.id])}</span>` : ""}
+        <input type="text" class="codeIn" id="code-${esc(m.id)}" placeholder="空欄で自動発行" autocomplete="off" aria-label="${esc(m.name)} の新しい合言葉"><button class="btn small" type="button" data-action="set-code">合言葉を設定</button>`}
+        <button class="btn danger small" type="button" data-action="del-member">削除</button>
+      </div>`).join("")}</div>`
+      : `<div class="empty">メンバーはまだいません。上のフォームから登録してください。</div>`);
+  }
+
+  // ---------- 管理：スケジュール登録 ----------
+  function renderAdminSched() {
+    const t = todayStr(), all = sortedEvents();
+    const up = all.filter((e) => e.date >= t), past = all.filter((e) => e.date < t).reverse();
+    const row = (e) => {
+      const att = answersFor(e.id), o = outcome(e.result);
+      const yes = activeMembers().filter((m) => att[m.id] === "yes" || (e.feePaid || {})[m.id]), off = !!e.cancelled;
+      const paidN = Object.values(e.feePaid || {}).filter(Boolean).length;
+      return `<div class="li" data-id="${esc(e.id)}">
+        <span class="date">${esc(mdw(e.date))}</span>${off ? `<span class="pill off">中止</span>` : ""}<span class="pill ${isGame(e) ? "game" : "practice"}">${esc(kindOf(e))}</span>
+        <div class="grow"><b>${evTitle(e)}</b> <span class="small muted">${[timeLine(e), esc(e.place || "")].filter(Boolean).join(" ・ ")}</span>${o ? ` <span class="result ${o}">${e.result.us}-${e.result.them}</span>` : ""}</div>
+        <button class="btn small" data-action="edit-event">編集</button>
+        <button class="btn small" data-action="toggle-cancel">${off ? "中止を取り消す" : "中止"}</button>
+        <button class="btn small danger" data-action="del-event">削除</button>
+        ${costsOf(e).length || n0(e.fee) ? `<div class="sub small muted">${[...costsOf(e).map((c) => `${esc(c.label)} ${yen(n0(c.amount))}`), costsOf(e).length > 1 ? `費用合計 ${yen(costsOf(e).reduce((s, c) => s + n0(c.amount), 0))}` : "", n0(e.fee) ? `参加費 ${yen(n0(e.fee))} × 徴収済み ${paidN}人 = ${yen(n0(e.fee) * paidN)}` : "", off ? "中止のため会計には反映しません" : ""].filter(Boolean).join(" ・ ")}</div>` : ""}
+        ${n0(e.fee) && !off ? `<div class="sub dues-grid">${yes.length ? yes.map((m) => `<button type="button" class="chip" data-action="toggle-fee" data-m="${esc(m.id)}" aria-pressed="${!!(e.feePaid || {})[m.id]}">${(e.feePaid || {})[m.id] ? "✓ " : ""}${esc(m.name)}</button>`).join("") : `<span class="small muted">「参加」と回答した人がここに並び、タップで徴収済みにできます。</span>`}</div>` : ""}
+      </div>`;
+    };
+    $("#adminEvents").innerHTML = all.length
+      ? `${up.length ? `<h3>これから</h3><div class="list">${up.map(row).join("")}</div>` : ""}${past.length ? `<h3 style="margin-top:12px">終わった予定</h3><div class="list">${past.map(row).join("")}</div>` : ""}`
+      : `<div class="empty">まだ予定はありません。上のフォームから登録してください。</div>`;
+  }
+  function syncOppField() { $("#oppWrap").hidden = $("#evKind").value === "練習"; }
+  let costSeq = 0;
+  function addCostRow(c = {}) {
+    const i = ++costSeq, row = document.createElement("div");
+    row.className = "cost-row";
+    row.innerHTML = `<label class="f">費用の項目<select id="costLabel-${i}">${COST_LABELS.map((l) => `<option>${l}</option>`).join("")}</select></label>
+      <label class="f">金額（円）<input type="number" id="costAmt-${i}" min="0" step="10" placeholder="0" value="${n0(c.amount) || ""}"></label>
+      <button class="btn small danger" type="button" data-action="remove-cost" aria-label="この費用を削除">削除</button>`;
+    const sel = row.querySelector("select");
+    if (c.label && !COST_LABELS.includes(c.label)) sel.insertAdjacentHTML("afterbegin", `<option>${esc(c.label)}</option>`);
+    if (c.label) sel.value = c.label;
+    $("#costRows").appendChild(row);
+  }
+  function setCostRows(list) { $("#costRows").innerHTML = ""; (list.length ? list : [{}]).forEach(addCostRow); }
+  const readCostRows = () => $$("#costRows .cost-row").map((r) => ({ label: r.querySelector("select").value, amount: Math.max(0, parseInt(r.querySelector("input").value) || 0) })).filter((c) => c.amount > 0);
+  function resetEvForm() {
+    ui.editing = ""; $("#evForm").reset(); $("#evDate").value = todayStr(); setCostRows([]); ui.meetAuto = true;
+    $("#evFormTitle").textContent = "予定を登録"; $("#evSubmit").textContent = "登録する"; $("#cancelEdit").hidden = true; syncOppField();
+  }
+  function loadEvForm(e) {
+    ui.editing = e.id;
+    $("#evKind").value = kindOf(e); $("#evDate").value = e.date || ""; $("#evStart").value = startOf(e); $("#evEnd").value = e.endTime || ""; $("#evMeet").value = e.meetTime || ""; ui.meetAuto = !e.meetTime; $("#evPlace").value = e.place || "";
+    $("#evOpp").value = e.opponent || ""; $("#evNote").value = e.note || ""; setCostRows(costsOf(e)); $("#evFee").value = n0(e.fee) || "";
+    $("#evFormTitle").textContent = `予定を編集（${mdw(e.date)}）`; $("#evSubmit").textContent = "変更を保存"; $("#cancelEdit").hidden = false; syncOppField();
+    $("#evForm").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ---------- 管理：通知 ----------
+  function renderAlerts() {
+    const seen = S.team.alertsSeenAt || "";
+    const list = changeAlerts().slice(0, 60);
+    setHTML($("#changeAlerts"), list.length ? `<div class="list">${list.map((c) => { const e = evById(c.eventId); const isNew = !seen || c.at > seen; return `<div class="li">
+        ${isNew ? `<span class="badge new">未読</span>` : ""}<span class="date">${esc(c.at.slice(5, 16).replace("T", " ").replace("-", "/"))}</span>
+        <div class="grow"><b>${esc(mName(c.memberId))}</b> <span class="small">${esc(ANS_JA[c.from || ""])} → <b class="${c.to === "yes" ? "t-yes" : c.to === "no" ? "t-no" : "t-maybe"}">${esc(ANS_JA[c.to || ""])}</b></span>
+          <div class="small muted">${esc(mdw(e.date))} ${esc(kindOf(e))} ${evTitle(e)}</div></div>
+      </div>`; }).join("")}</div>` : `<div class="empty">活動日${LATE_DAYS}日前以降の出欠変更はまだありません。</div>`);
+    const evs = sortedEvents().filter((e) => { const d = daysUntil(e.date); return !e.cancelled && d >= 0 && d <= REMIND_DAYS; });
+    setHTML($("#remindList"), evs.length ? evs.map((e) => {
+      const att = answersFor(e.id);
+      const pend = rsvpMembers().filter((m) => att[m.id] !== "yes" && att[m.id] !== "no");
+      const text = `【出欠のお願い】${mdw(e.date)} ${kindOf(e)}${e.opponent ? " vs " + e.opponent : ""}\n未定・未回答：${pend.map((m) => m.name).join("、")}\nアプリから出欠を回答してください。`;
+      return `<div class="form" style="gap:8px"><div class="row spread"><b>${esc(mdw(e.date))} ${esc(kindOf(e))} ${evTitle(e)}</b><span class="small muted">あと${daysUntil(e.date)}日・未定/未回答 ${pend.length}人</span></div>
+        ${pend.length ? `<pre class="copybox">${esc(text)}</pre><div><button class="btn small" data-action="copy" data-text="${esc(text)}">文面をコピー</button></div>` : `<div class="small t-yes">全員が回答済みです。</div>`}</div>`;
+    }).join("") : `<div class="empty">${REMIND_DAYS}日以内の予定はありません。</div>`);
+  }
+
+  // ---------- 管理：設定 ----------
+  function renderSettings() {
+    const r = rules();
+    if (document.activeElement !== $("#paMul")) $("#paMul").value = r.paMul;
+    if (document.activeElement !== $("#ipMul")) $("#ipMul").value = r.ipMul;
+    $("#rulesPreview").textContent = `今年の基準：${qualText(quals(thisYear, ""))}`;
+    $("#adminDues").innerHTML = duesHTML(S.dues, true) || `<div class="empty">部費の徴収はまだありません。</div>`;
+    const led = S.ledger.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).map((l) => ({ date: l.date || "", cat: l.category, memo: l.memo || "", amt: (l.kind === "in" ? 1 : -1) * n0(l.amount), ledgerId: l.id }));
+    $("#adminLedger").innerHTML = led.length ? `<div class="list">${led.map((x) => ledgerRow(x, true)).join("")}</div>` : `<div class="empty">手入力の入出金はまだありません。</div>`;
+  }
+
+  // ---------- 管理：ポータルから取り込み ----------
+  // reads the portal in the admin's browser (GitHub Pages allows cross-origin reads) and writes only changed extgames/profiles
+  async function portalImport(btn) {
+    if (!isAdmin) return;
+    const PC = window.PortalConvert, st = $("#portalStatus");
+    if (!PC) { toast("取り込み機能を読み込めませんでした。再読み込みしてください"); return; }
+    btn.disabled = true; st.hidden = false; st.textContent = "ポータルを読み込み中…";
+    try {
+      let data;
+      try { const res = await fetch(PC.PORTAL_URL, { cache: "no-store" }); if (!res.ok) throw new Error(res.status); data = PC.parseHtml(await res.text()); }
+      catch { st.textContent = "ポータルを読み込めませんでした。時間をおいてもう一度お試しください。"; return; }
+      const { games, profiles, unmatchedRoster } = PC.convert(data, S.members);
+      const rows = [
+        ...Object.values(games).filter((g) => !PC.sameDoc(strip(findDoc("extgames", g.gameId)), g)).map((g) => ({ c: "extgames", id: g.gameId, d: g })),
+        ...profiles.filter((p) => !PC.sameDoc(strip(findDoc("profiles", p.id)), p.doc)).map((p) => ({ c: "profiles", id: p.id, d: p.doc })),
+      ];
+      const newGames = rows.filter((r) => r.c === "extgames" && !findDoc("extgames", r.id));
+      if (rows.length) {
+        st.textContent = `反映中…（${rows.length}件）`;
+        if (!await write(async () => { for (let i = 0; i < rows.length; i += 50) await rpc("admin_put_many", { p_admin: cred.admin, p_rows: rows.slice(i, i + 50) }); await refresh(); })) { st.textContent = "反映できませんでした。もう一度お試しください。"; return; }
+      }
+      const nUpd = rows.filter((r) => r.c === "extgames").length - newGames.length, nProf = rows.filter((r) => r.c === "profiles").length;
+      st.textContent = !rows.length ? "最新の状態です。変更はありませんでした。"
+        : [newGames.length ? `新しい試合 ${newGames.length}件（${newGames.map((r) => `${mdw(r.d.date)} ${r.d.opponent}`).join("、")}）` : "", nUpd ? `更新した試合 ${nUpd}件` : "", nProf ? `更新したプロフィール ${nProf}件` : ""].filter(Boolean).join(" ・ ") + " を反映しました。";
+      if (unmatchedRoster.length) st.textContent += ` メンバー登録が見つからない選手：${unmatchedRoster.join("、")}（助っ人として集計）`;
+      toast(rows.length ? "取り込みました" : "変更はありませんでした");
+    } finally { btn.disabled = false; }
+  }
+
+  // ---------- 管理：お知らせ ----------
+  function renderAdminNotices() {
+    const ns = sortedNotices();
+    $("#adminNotices").innerHTML = ns.length ? `<div class="section">${ns.map((n) => noticeCard(n, true)).join("")}</div>` : `<div class="empty">まだお知らせはありません。発信すると HOME に表示されます。</div>`;
+  }
+
+  // ---------- 試合結果 ----------
+  const allGames = () => [...S.events.filter((e) => isGame(e) && !e.extId && outcome(e.result)), ...S.extgames.map(extAsEvent)]
+    .filter((e) => inFilter(e)).sort((a, b) => b.date.localeCompare(a.date));
+  const findGame = (id) => id.startsWith("x:") ? (() => { const g = S.extgames.find((x) => "x:" + x.id === id); return g && extAsEvent(g); })() : evById(id);
+  function gameLines(e) {
+    if (e.ext) return Object.entries(S.extgames.find((x) => "x:" + x.id === e.id)?.lines || {});
+    return S.stats.filter((s) => s.eventId === e.id).map((s) => [s.memberId, s]);
+  }
+  const lineName = (k) => k.startsWith("g:") ? `${esc(k.slice(2))} <span class="small muted">助っ人</span>` : esc(mName(k));
+  const mediaFor = (key) => S.media.flatMap((d) => (d.items || []).filter((it) => it.gameKey === key).map((it) => ({ ...it, owner: d.id }))).sort((a, b) => (a.at || "").localeCompare(b.at || ""));
+  function renderResults() {
+    const detail = ui.game && findGame(ui.game);
+    $("#resultsList").hidden = !!detail; $("#gameDetail").hidden = !detail;
+    if (!detail) {
+      const gs = allGames();
+      setHTML($("#gamesList"), gs.length ? `<div class="list gl">${gs.map((e) => { const o = outcome(e.result); const n = mediaFor(e.id).length + ((S.gamemedia.find((x) => x.id === e.id)?.videos) || []).length;
+        return `<div class="li" data-game="${esc(e.id)}" role="button" tabindex="0"><span class="date">${esc(mdw(e.date))}</span><span class="pill game">${esc(kindOf(e))}</span><div class="grow"><b>${evTitle(e)}</b> <span class="small muted">${esc(e.place || "")}</span></div>${n ? `<span class="badge">写真・動画 ${n}</span>` : ""}${o ? `<span class="result ${o}">${e.result.us} - ${e.result.them} ${OUT_JA[o]}</span>` : ""}</div>`; }).join("")}</div>`
+        : `<div class="empty">この条件の試合結果はありません。</div>`);
+      return;
+    }
+    const e = detail, o = outcome(e.result), lines = gameLines(e);
+    const bat = lines.filter(([, l]) => n0(l.ab) + n0(l.bb) + n0(l.sh) + n0(l.sf) > 0 || l.ord != null).sort((a, b) => (a[1].ord ?? 99) - (b[1].ord ?? 99));
+    const pit = lines.filter(([, l]) => n0(l.pg) || n0(l.outs) || n0(l.ph) + n0(l.er) + n0(l.pbb) > 0).sort((a, b) => (a[1].pord ?? 9) - (b[1].pord ?? 9));
+    const tb = bat.reduce((t, [, l]) => { ["ab", "h", "hr", "rbi", "r", "bb", "so", "sb"].forEach((k) => (t[k] = (t[k] || 0) + n0(l[k]))); return t; }, {});
+    const vids = S.gamemedia.find((x) => x.id === e.id)?.videos || [];
+    const pics = mediaFor(e.id);
+    const DEC = { W: "勝", L: "敗", S: "S", H: "H" };
+    setHTML($("#gameDetail"), `
+      <div><button class="link" data-game="">← 試合結果一覧へ</button></div>
+      <div class="score-big"><div><div class="small" style="opacity:.8">${esc(mdw(e.date))} ・ ${esc(kindOf(e))}${e.place ? " ・ " + esc(e.place) : ""}</div><h2 style="font-size:20px">${evTitle(e)}</h2></div>
+        <span style="flex:1"></span>${o ? `<span class="sc">${e.result.us} - ${e.result.them}</span><span class="wl">${OUT_JA[o]}</span>` : ""}</div>
+      <div class="section"><h3>打撃成績</h3>${bat.length ? `<div class="tbl-wrap"><table><thead><tr><th>打順</th><th class="l">守備</th><th class="name">選手</th><th>打数</th><th>安打</th><th>本塁打</th><th>打点</th><th>得点</th><th>四死球</th><th>三振</th><th>盗塁</th></tr></thead><tbody>
+        ${bat.map(([k, l]) => `<tr><td>${l.ord && l.ord < 99 ? (l.start === false ? "" : l.ord) : ""}</td><td class="l">${esc(l.pos || "")}</td><td class="name">${lineName(k)}</td><td>${n0(l.ab)}</td><td>${n0(l.h)}</td><td>${n0(l.hr)}</td><td>${n0(l.rbi)}</td><td>${n0(l.r)}</td><td>${n0(l.bb)}</td><td>${n0(l.so)}</td><td>${n0(l.sb)}</td></tr>`).join("")}
+        <tr class="total"><td></td><td></td><td class="name">合計</td><td>${tb.ab || 0}</td><td>${tb.h || 0}</td><td>${tb.hr || 0}</td><td>${tb.rbi || 0}</td><td>${tb.r || 0}</td><td>${tb.bb || 0}</td><td>${tb.so || 0}</td><td>${tb.sb || 0}</td></tr></tbody></table></div>` : `<div class="empty">打撃成績はありません。</div>`}</div>
+      <div class="section"><h3>投手成績</h3>${pit.length ? `<div class="tbl-wrap"><table><thead><tr><th class="name">投手</th><th>投球回</th><th>被安打</th><th>自責点</th><th>与四死球</th><th>奪三振</th><th>勝敗</th></tr></thead><tbody>
+        ${pit.map(([k, l]) => `<tr><td class="name">${lineName(k)}</td><td>${ipStr(n0(l.outs))}</td><td>${n0(l.ph)}</td><td>${n0(l.er)}</td><td>${n0(l.pbb)}</td><td>${n0(l.pso)}</td><td>${DEC[l.dec] || ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">投手成績はありません。</div>`}</div>
+      <div class="section"><div class="row spread"><h3>動画リンク</h3></div>
+        ${vids.length ? `<div class="list">${vids.map((v, i) => `<div class="li"><div class="grow"><a href="${esc(v.url)}" target="_blank" rel="noopener noreferrer">${esc(v.title || v.url)}</a></div>${isAdmin ? `<button class="btn small danger" data-action="del-video" data-i="${i}">削除</button>` : ""}</div>`).join("")}</div>` : `<div class="small muted">動画リンクはまだありません。</div>`}
+        ${isAdmin ? `<form class="form" id="videoForm" style="gap:8px"><div class="grid2"><label class="f">タイトル<input type="text" id="vTitle" placeholder="例：3回裏 先制タイムリー"></label><label class="f">URL<input type="text" id="vUrl" inputmode="url" placeholder="https://youtu.be/..."></label></div><div><button class="btn primary small" type="submit">リンクを追加</button></div></form>` : ""}
+      </div>
+      <div class="section"><div class="row spread"><h3>アルバム</h3>
+        ${sb && myState().k === "ok" ? `<label class="btn small upl" for="albumFile">＋ 写真・動画を投稿<input type="file" id="albumFile" accept="image/png,image/jpeg,image/gif,image/webp,image/heic,video/mp4,video/webm,video/quicktime" multiple></label>` : ""}</div>
+        ${ui.uploading ? `<div class="small muted">${ui.uploading} 件アップロード中…</div>` : ""}
+        ${pics.length ? `<div class="album">${pics.map((p, i) => `<figure>${(p.type || "").startsWith("video/") ? `<video src="${esc(mediaUrl(p))}" controls preload="metadata" playsinline></video>` : `<img src="${esc(mediaUrl(p))}" alt="試合の写真" loading="lazy" data-ph="1">`}
+          ${isAdmin || p.owner === myUid ? `<button class="btn small danger del" data-action="del-media" data-owner="${esc(p.owner)}" data-path="${esc(p.path || "")}">削除</button>` : ""}</figure>`).join("")}</div>`
+          : `<div class="small muted">${myState().k === "ok" ? "まだ写真・動画はありません。最初の1枚を投稿してください。" : "まだ写真・動画はありません。投稿するには HOME で自分の名前でログインしてください。"}</div>`}
+        <p class="small muted" style="margin:0">写真・動画は1ファイル20MBまで（mp4 / webm / jpg / png など）。</p>
+      </div>`);
+    $$("#gameDetail img[data-ph]").forEach((img) => (img.onerror = () => { img.replaceWith(Object.assign(document.createElement("div"), { className: "ph", textContent: "表示できません" })); }));
+  }
+
+  // ---------- 選手名鑑 ----------
+  const profileOf = (mid) => S.profiles.find((p) => p.id === mid) || {};
+  function playerLines(mid, year = "") {
+    return [...S.stats.filter((s) => s.memberId === mid).map((s) => ({ s, e: evById(s.eventId) })),
+      ...S.extgames.filter((g) => g.lines?.[mid]).map((g) => ({ s: g.lines[mid], e: extAsEvent(g) }))]
+      .filter(({ e }) => e && (!year || e.date.startsWith(year))).sort((a, b) => a.e.date.localeCompare(b.e.date));
+  }
+  const sumLines = (arr) => { const a = blank("x"); arr.forEach(({ s }) => addLine(a, s)); return finish(a); };
+  // single-series line chart: one scale for marks, ticks and labels; tooltip on tap/hover
+  function lineChart(pts, fmtV, unit) {
+    if (pts.length < 2) return `<div class="empty">月別推移を表示するにはデータが不足しています（2か月以上必要）。</div>`;
+    const W = 600, H = 210, L = 44, R = 40, T = 14, B = 30;
+    const max = Math.max(...pts.map((p) => p.v)) || 1, top = max * 1.15;
+    const x = (i) => L + (i * (W - L - R)) / (pts.length - 1), y = (v) => T + (H - T - B) * (1 - v / top);
+    const ticks = [0, 1, 2, 3].map((i) => (top * i) / 3);
+    const spansYears = new Set(pts.map((p) => p.m.slice(0, 4))).size > 1;
+    const lab = (m) => (spansYears ? m.slice(2, 4) + "/" : "") + +m.slice(5) + "月";
+    const every = Math.ceil(pts.length / 8);
+    const last = pts[pts.length - 1];
+    return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="月別の推移">
+      ${ticks.map((t) => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text class="ax" x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${fmtV(t)}</text>`).join("")}
+      ${pts.map((p, i) => i % every === 0 || i === pts.length - 1 ? `<text class="ax" x="${x(i)}" y="${H - 8}" text-anchor="middle">${lab(p.m)}</text>` : "").join("")}
+      <polyline class="ln" points="${pts.map((p, i) => `${x(i)},${y(p.v)}`).join(" ")}"/>
+      ${pts.map((p, i) => `<circle class="pt" cx="${x(i)}" cy="${y(p.v)}" r="4"/>`).join("")}
+      <text class="end" x="${x(pts.length - 1) + 8}" y="${y(last.v) + 4}">${fmtV(last.v)}</text>
+      ${pts.map((p, i) => `<circle class="hit" cx="${x(i)}" cy="${y(p.v)}" r="14" data-tip="${esc(lab(p.m))}：${esc(fmtV(p.v))}${esc(p.sub || "")}"/>`).join("")}
+    </svg></div>`;
+  }
+  const normOpp = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+  function renderPlayers() {
+    const mid = ui.pl && memberById(ui.pl) ? ui.pl : "";
+    $("#playersList").hidden = !!mid; $("#playerDetail").hidden = !mid;
+    if (!mid) {
+      const list = sortMembers(S.members.filter((m) => !m.ob && ($("#showHidden").checked || !m.hidden)));
+      setHTML($("#playerGrid"), list.length ? list.map((m) => { const p = profileOf(m.id); return `<button class="pcard" data-pl="${esc(m.id)}"><span class="no">${m.no != null ? esc(m.no) : "—"}</span><span class="nm">${esc(m.name)}${m.hidden ? ` <span class="badge wait">休部中</span>` : ""}</span><span class="ps">${esc(p.position || m.pos || "")}${p.throwBat ? " ・ " + esc(p.throwBat.replace(/ \/ /, "")) : ""}</span></button>`; }).join("")
+        : `<div class="empty">選手が登録されていません。</div>`);
+      return;
+    }
+    const m = memberById(mid), p = profileOf(mid);
+    const ys = [...new Set(playerLines(mid).map(({ e }) => e.date.slice(0, 4)))].sort().reverse();
+    if (ui.pyear && !ys.includes(ui.pyear)) ui.pyear = "";
+    const yr = ui.pyear;
+    const lines = playerLines(mid, yr), tot = sumLines(lines);
+    const hasPit = tot.pg > 0;
+    // monthly series
+    const byMonth = {}; lines.forEach(({ s, e }) => (byMonth[e.date.slice(0, 7)] ||= []).push({ s }));
+    const months = Object.keys(byMonth).sort().map((mm) => ({ m: mm, t: sumLines(byMonth[mm]) }));
+    const avgPts = months.filter((x) => x.t.ab > 0).map((x) => ({ m: x.m, v: x.t.avg, sub: `（${x.t.ab}打数${x.t.h}安打）` }));
+    const eraPts = months.filter((x) => x.t.outs > 0).map((x) => ({ m: x.m, v: x.t.era, sub: `（${ipStr(x.t.outs)}回 自責${x.t.er}）` }));
+    // per opponent (通算)
+    const opp = {}; playerLines(mid).forEach(({ s, e }) => { const k = normOpp(e.opponent); if (!k) return; (opp[k] ||= { name: e.opponent, arr: [] }).arr.push({ s }); });
+    const oppRows = Object.values(opp).map((o) => ({ name: o.name, g: o.arr.length, t: sumLines(o.arr) }));
+    const oppBat = oppRows.filter((o) => o.t.ab >= 2).sort((a, b) => (b.t.ops ?? -1) - (a.t.ops ?? -1));
+    const oppPit = oppRows.filter((o) => o.t.outs >= 3).sort((a, b) => (a.t.era ?? 99) - (b.t.era ?? 99));
+    // by year
+    const allYs = [...new Set(playerLines(mid).map(({ e }) => e.date.slice(0, 4)))].sort();
+    const byYear = allYs.map((y) => ({ y, t: sumLines(playerLines(mid, y)) }));
+    const det = p.detail, db_ = det?.batting, dp = det?.pitching, df = det?.fielding;
+    const bb = db_?.batted_balls || [];
+    const cnt = (arr, key) => { const c = {}; arr.forEach((b) => (c[b[key]] = (c[b[key]] || 0) + 1)); return c; };
+    const barRows = (c, order) => { const tot2 = Object.values(c).reduce((a, b) => a + b, 0) || 1; return order.filter((k) => c[k]).map((k) => `<div class="b"><span>${esc(k)}</span><span class="track"><span class="fill" style="display:block;width:${(c[k] / tot2) * 100}%"></span></span><span class="v">${Math.round((c[k] / tot2) * 100)}%</span></div>`).join(""); };
+    const POS = { P: "投手", C: "捕手", "1B": "一塁", "2B": "二塁", "3B": "三塁", SS: "遊撃", LF: "左翼", CF: "中堅", RF: "右翼" };
+    const field = df ? Object.entries(df).filter(([, v]) => v.po + v.a + v.e > 0) : [];
+    const rate = (h, n) => (n ? pct(h / n) : "—");
+    setHTML($("#playerDetail"), `
+      <div class="row spread"><button class="link" data-pl="">← 選手一覧へ</button><label class="row small">年度 <select id="pYear"><option value="">通算</option>${ys.map((y) => `<option value="${y}">${y}年</option>`).join("")}</select></label></div>
+      <div class="phead"><span class="no">${m.no != null ? esc(m.no) : "—"}</span><h2>${esc(m.name)}</h2>
+        <div class="meta">${[p.position || m.pos, p.subPosition ? "（" + p.subPosition + "）" : "", p.throwBat].filter(Boolean).map(esc).join(" ")}</div>
+        <div class="meta">${esc(p.roleJoin || "")}${p.career ? " ・ 経歴：" + esc(p.career) : ""}${m.hidden ? " ・ 休部中" : ""}</div></div>
+      ${p.pr ? `<p class="pr">${esc(p.pr)}</p>` : ""}
+      <div class="section"><h3>${yr ? yr + "年" : "通算"}の打撃成績</h3>
+        ${tot.pa ? `<div class="kpis"><div><span>試合</span><b>${tot.g}</b></div><div><span>打率</span><b>${pct(tot.avg)}</b></div><div><span>本塁打</span><b>${tot.hr}</b></div><div><span>打点</span><b>${tot.rbi}</b></div><div><span>盗塁</span><b>${tot.sb}</b></div><div><span>出塁率</span><b>${pct(tot.obp)}</b></div><div><span>OPS</span><b>${pct(tot.ops)}</b></div><div><span>安打 / 打数</span><b>${tot.h} / ${tot.ab}</b></div></div>` : `<div class="empty">打撃成績はありません。</div>`}</div>
+      ${hasPit ? `<div class="section"><h3>${yr ? yr + "年" : "通算"}の投手成績</h3><div class="kpis"><div><span>登板</span><b>${tot.pg}</b></div><div><span>勝-敗-S</span><b>${tot.w}-${tot.l}-${tot.sv}</b></div><div><span>投球回</span><b>${ipStr(tot.outs)}</b></div><div><span>防御率</span><b>${fmt("era", tot.era)}</b></div><div><span>奪三振</span><b>${tot.pso}</b></div><div><span>WHIP</span><b>${fmt("whip", tot.whip)}</b></div></div></div>` : ""}
+      ${byYear.length > 1 ? `<div class="section"><h3>年度別成績</h3><div class="tbl-wrap"><table><thead><tr><th class="l">年度</th><th>試合</th><th>打席</th><th>打数</th><th>安打</th><th>本塁打</th><th>打点</th><th>盗塁</th><th>打率</th><th>OPS</th>${hasPit || byYear.some((r) => r.t.pg) ? "<th>登板</th><th>投球回</th><th>防御率</th><th>奪三振</th>" : ""}</tr></thead><tbody>
+        ${byYear.map(({ y, t }) => `<tr><td class="l">${y}</td><td>${t.g}</td><td>${t.pa}</td><td>${t.ab}</td><td>${t.h}</td><td>${t.hr}</td><td>${t.rbi}</td><td>${t.sb}</td><td>${pct(t.avg)}</td><td>${pct(t.ops)}</td>${hasPit || byYear.some((r) => r.t.pg) ? `<td>${t.pg}</td><td>${ipStr(t.outs)}</td><td>${fmt("era", t.era)}</td><td>${t.pso}</td>` : ""}</tr>`).join("")}</tbody></table></div></div>` : ""}
+      <div class="section"><h3>月別打率の推移${yr ? "（" + yr + "年）" : ""}</h3>${lineChart(avgPts, (v) => pct(v))}</div>
+      ${hasPit ? `<div class="section"><h3>月別防御率の推移${yr ? "（" + yr + "年）" : ""}</h3>${lineChart(eraPts, (v) => v.toFixed(2))}</div>` : ""}
+      <div class="section"><h3>対戦相手別成績（通算・2打数以上）</h3>${oppBat.length ? `<div class="tbl-wrap"><table><thead><tr><th class="name">相手</th><th>試合</th><th>打数</th><th>安打</th><th>本塁打</th><th>打点</th><th>打率</th><th>出塁率</th><th>OPS</th></tr></thead><tbody>
+        ${oppBat.map((o) => `<tr><td class="name">${esc(o.name)}</td><td>${o.g}</td><td>${o.t.ab}</td><td>${o.t.h}</td><td>${o.t.hr}</td><td>${o.t.rbi}</td><td>${pct(o.t.avg)}</td><td>${pct(o.t.obp)}</td><td>${pct(o.t.ops)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">対象のデータがありません。</div>`}</div>
+      ${oppPit.length ? `<div class="section"><h3>対戦相手別 投手成績（通算・1イニング以上）</h3><div class="tbl-wrap"><table><thead><tr><th class="name">相手</th><th>登板</th><th>投球回</th><th>被安打</th><th>自責点</th><th>奪三振</th><th>防御率</th></tr></thead><tbody>
+        ${oppPit.map((o) => `<tr><td class="name">${esc(o.name)}</td><td>${o.t.pg}</td><td>${ipStr(o.t.outs)}</td><td>${o.t.ph}</td><td>${o.t.er}</td><td>${o.t.pso}</td><td>${fmt("era", o.t.era)}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
+      ${det ? `<div class="section"><h3>${esc(p.detailYear)}年 詳細指標</h3>
+        ${db_ ? `<div class="kpis"><div><span>wOBA</span><b>${db_.woba_value != null ? pct(db_.woba_value) : "—"}</b></div><div><span>wRC+</span><b>${db_.wrc_plus != null ? Math.round(db_.wrc_plus) : "—"}</b></div><div><span>得点圏</span><b>${rate(db_.risp?.h, db_.risp?.pa)}</b></div><div><span>2ストライク後</span><b>${rate(db_.two_strike?.h, db_.two_strike?.pa)}</b></div></div>
+          <p class="small muted" style="margin:0">得点圏・2ストライク後は 安打÷打席（得点圏 ${n0(db_.risp?.h)}/${n0(db_.risp?.pa)}、2ストライク後 ${n0(db_.two_strike?.h)}/${n0(db_.two_strike?.pa)}）。</p>` : ""}
+        ${bb.length ? `<div class="grid2"><div class="chart" style="padding:12px"><h3 style="margin-bottom:6px">打球方向（${bb.length}球）</h3><div class="bars">${barRows(cnt(bb, "direction"), ["引っ張り", "センター", "流し"])}</div></div>
+          <div class="chart" style="padding:12px"><h3 style="margin-bottom:6px">打球の種類</h3><div class="bars">${barRows(cnt(bb, "type"), ["ゴロ", "ライナー", "フライ", "内フライ"])}</div></div></div>` : ""}
+        ${dp && dp.pitches ? `<div class="kpis"><div><span>投球数</span><b>${dp.pitches}</b></div><div><span>ストライク率</span><b>${Math.round(((dp.pitches - dp.balls) / dp.pitches) * 100)}%</b></div><div><span>空振り率</span><b>${Math.round((dp.whiffs / dp.pitches) * 100)}%</b></div><div><span>ゴロ率</span><b>${dp.balls_in_play ? Math.round((dp.ground_balls / dp.balls_in_play) * 100) + "%" : "—"}</b></div></div>` : ""}
+        ${field.length ? `<div class="tbl-wrap"><table><thead><tr><th class="l">守備位置</th><th>刺殺</th><th>補殺</th><th>失策</th><th>併殺</th><th>守備率</th></tr></thead><tbody>${field.map(([k, v]) => `<tr><td class="l">${esc(POS[k] || k)}</td><td>${v.po}</td><td>${v.a}</td><td>${v.e}</td><td>${v.dp}</td><td>${pct((v.po + v.a) / (v.po + v.a + v.e))}</td></tr>`).join("")}</tbody></table></div>` : ""}
+      </div>` : ""}`);
+    $("#pYear").value = yr;
+  }
+
+  // ---------- render ----------
+  function renderAll() {
+    renderNav(); renderHeader(); renderFilters();
+    renderHome(); renderSchedule(); renderResults(); renderPersonal(); renderTeam(); renderPlayers(); renderMoney();
+    if (isAdmin) {
+      renderAdminMembers(); renderAdminSched(); renderAdminNotices(); renderAlerts(); renderSettings();
+    }
+    fillNames();
+  }
+
+  // ---------- interactions ----------
+  document.addEventListener("click", async (ev) => {
+    const tab = ev.target.closest("[data-tab]"); if (tab) return showTab(tab.dataset.tab);
+    const go = ev.target.closest("[data-goto]"); if (go) return showTab(go.dataset.goto);
+    const lk = ev.target.closest("[data-ledkind]");
+    if (lk) { ui.ledKind = lk.dataset.ledkind; $$("[data-ledkind]").forEach((b) => b.setAttribute("aria-pressed", b === lk)); fillCats(); return; }
+    const sk = ev.target.closest("[data-statkind]");
+    if (sk) { ui.statKind = sk.dataset.statkind; $$("#tab-personal [data-statkind]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.statkind === ui.statKind)); renderPersonal(); return; }
+    const kf = ev.target.closest("[data-kind]"); if (kf) { ui.kind = kf.dataset.kind; renderFilters(); renderPersonal(); renderTeam(); return; }
+    const th = ev.target.closest("th[data-sort]"); if (th) { ui.sort[ui.statKind] = th.dataset.sort; renderPersonal(); return; }
+    const gm = ev.target.closest("[data-game]"); if (gm) { ui.game = gm.dataset.game; renderResults(); window.scrollTo({ top: 0 }); return; }
+    const pc = ev.target.closest("[data-pl]"); if (pc) { ui.pl = pc.dataset.pl; ui.pyear = ""; renderPlayers(); window.scrollTo({ top: 0 }); return; }
+    const pl = ev.target.closest("[data-player]");
+    if (pl) { ui.player = pl.dataset.player; renderPersonal(); if (ui.player) $("#gameLog").scrollIntoView({ behavior: "smooth", block: "start" }); return; }
+
+    const btn = ev.target.closest("[data-action]"); if (!btn) return;
+    const a = btn.dataset.action;
+    const hostId = btn.closest("[data-id]")?.dataset.id;
+    if (a === "toggle") { const f = $("#" + btn.dataset.target); f.hidden = !f.hidden; if (!f.hidden && $("#ledDate") && !$("#ledDate").value) $("#ledDate").value = todayStr(); }
+    else if (a === "rsvp") {
+      if (myState().k !== "ok" || evById(hostId)?.cancelled) return;
+      const cur = myRsvp()?.answers?.[hostId] || "";
+      const v = cur === btn.dataset.v ? "" : btn.dataset.v;
+      try {
+        const res = await rpc("rsvp_set", { p_team: cred.team, p_member: myUid, p_code: cred.code, p_event: hostId, p_answer: v });
+        toast(res?.late ? "出欠を変更しました（管理者に通知されます）" : v ? "出欠を回答しました" : "回答を取り消しました");
+        await refresh();
+      } catch (e) { memberErr(e); }
+    }
+    else if (a === "claim") {
+      const mid = $("#claimSel")?.value, code = $("#claimCode")?.value.trim();
+      if (!mid) return toast("自分の名前を選んでください");
+      if (!code) return toast("個人の合言葉を入れてください");
+      try {
+        await rpc("member_login", { p_team: cred.team, p_member: mid, p_code: code });
+        cred.member = mid; cred.code = code; saveCred(); myUid = mid; renderAll(); toast("ログインしました");
+      } catch (e) { memberErr(e); }
+    }
+    else if (a === "member-logout") { cred.member = ""; cred.code = ""; saveCred(); myUid = null; renderAll(); }
+    else if (a === "set-code") {
+      const input = $("#code-" + hostId); let code = (input?.value || "").trim();
+      if (!code) code = String(Math.floor(100000 + Math.random() * 900000));
+      if (code.length < 4) return toast("合言葉は4文字以上にしてください");
+      try {
+        await rpc("admin_set_member_code", { p_admin: cred.admin, p_member: hostId, p_code: code });
+        ui.codes.add(hostId); ui.newCodes[hostId] = code; if (input) input.value = "";
+        renderAdminMembers(); toast(`${mName(hostId)} さんの合言葉を「${code}」に設定しました`);
+      } catch (e) { toast("設定できませんでした"); }
+    }
+    else if (a === "toggle-hidden") { const m = memberById(hostId); await write(() => db.doc("members/" + hostId).update({ hidden: !m.hidden }), m.hidden ? `${m.name} さんを復帰にしました` : `${m.name} さんを休部にしました（成績は残ります）`); }
+    else if (a === "toggle-ob") { const m = memberById(hostId); await write(() => db.doc("members/" + hostId).update({ ob: !m.ob }), m.ob ? `${m.name} さんの退団を取り消しました` : `${m.name} さんを退団にしました（成績は残ります）`); }
+    else if (a === "toggle-cancel") { const e = evById(hostId); await write(() => db.doc("events/" + hostId).update({ cancelled: !e.cancelled }), e.cancelled ? "中止を取り消しました" : "予定を中止にしました（会計には反映しません）"); }
+    else if (a === "toggle-rsvp-req") { const m = memberById(hostId); await write(() => db.doc("members/" + hostId).update({ noRsvp: !m.noRsvp }), m.noRsvp ? `${m.name} さんを出欠回答ありにしました` : `${m.name} さんを出欠回答なしにしました`); }
+    else if (a === "del-member") { if (armed(btn)) await write(() => db.doc("members/" + hostId).delete(), "メンバーを削除しました"); }
+    else if (a === "edit-event") { const e = evById(hostId); if (e) loadEvForm(e); }
+    else if (a === "cancel-edit") resetEvForm();
+    else if (a === "add-cost") { addCostRow(); $("#costRows .cost-row:last-child select").focus(); }
+    else if (a === "remove-cost") { btn.closest(".cost-row").remove(); if (!$("#costRows .cost-row")) addCostRow(); }
+    else if (a === "del-event") { if (armed(btn)) { if (await write(() => db.doc("events/" + hostId).delete(), "予定を削除しました")) { if (ui.editing === hostId) resetEvForm(); } } }
+    else if (a === "toggle-fee") { const e = evById(hostId), mid = btn.dataset.m; await write(() => db.doc("events/" + hostId).update({ feePaid: { [mid]: !(e.feePaid || {})[mid] } })); }
+    else if (a === "toggle-paid") { const d = S.dues.find((x) => x.id === hostId), mid = btn.dataset.m; await write(() => db.doc("dues/" + hostId).update({ paid: { [mid]: !(d.paid || {})[mid] } })); }
+    else if (a === "del-dues") { if (armed(btn)) await write(() => db.doc("dues/" + hostId).delete(), "徴収を削除しました"); }
+    else if (a === "del-ledger") { if (armed(btn)) await write(() => db.doc("ledger/" + hostId).delete(), "記録を削除しました"); }
+    else if (a === "pin-notice") { const n = S.notices.find((x) => x.id === hostId); await write(() => db.doc("notices/" + hostId).update({ pinned: !n.pinned })); }
+    else if (a === "mark-read") await write(() => db.doc("config/team").set({ ...S.team, alertsSeenAt: new Date().toISOString() }), "既読にしました");
+    else if (a === "portal-import") await portalImport(btn);
+    else if (a === "copy") {
+      const text = btn.dataset.text;
+      try { await navigator.clipboard.writeText(text); toast("コピーしました"); }
+      catch { const pre = btn.closest(".form")?.querySelector(".copybox"); if (pre) { const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); } toast("文面を選択しました。長押しでコピーしてください"); }
+    }
+    else if (a === "del-video") {
+      const doc = S.gamemedia.find((x) => x.id === ui.game); if (!doc || !armed(btn)) return;
+      const videos = (doc.videos || []).filter((_, i) => i !== +btn.dataset.i);
+      await write(() => db.doc("gamemedia/" + ui.game).set({ videos }), "動画リンクを削除しました");
+    }
+    else if (a === "del-media") {
+      if (!armed(btn)) return;
+      const owner = btn.dataset.owner, path = btn.dataset.path, doc = S.media.find((d) => d.id === owner);
+      if (isAdmin) { const items = (doc?.items || []).filter((it) => it.path !== path); await write(() => db.doc("media/" + owner).set({ items }), "削除しました"); }
+      else if (owner === myUid) { try { await rpc("album_remove", { p_team: cred.team, p_member: myUid, p_code: cred.code, p_path: path }); toast("削除しました"); await refresh(); } catch (e) { memberErr(e); } }
+    }
+    else if (a === "admin-login") { const f = $("#adminLogin"); f.hidden = !f.hidden; if (!f.hidden) $("#adminPw").focus(); }
+    else if (a === "admin-logout") { cred.admin = ""; saveCred(); isAdmin = false; renderAll(); renderAdminBox(); toast("管理者からログアウトしました"); }
+    else if (a === "del-notice") { if (armed(btn)) await write(() => db.doc("notices/" + hostId).delete(), "お知らせを削除しました"); }
+  });
+
+  $$(".yearSel").forEach((s) => s.addEventListener("change", (e) => { ui.year = e.target.value; renderFilters(); renderPersonal(); renderTeam(); renderResults(); }));
+  $("#showHidden").addEventListener("change", renderPlayers);
+  document.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches?.("[data-game]")) e.target.click(); });
+  document.addEventListener("change", (e) => { if (e.target.id === "pYear") { ui.pyear = e.target.value; renderPlayers(); } });
+  // chart tooltip: hover on desktop, tap on phones
+  const tip = Object.assign(document.createElement("div"), { className: "tip", hidden: true }); document.body.appendChild(tip);
+  const showTip = (el) => { const r = el.getBoundingClientRect(); tip.textContent = el.dataset.tip; tip.style.left = r.left + r.width / 2 + "px"; tip.style.top = r.top + "px"; tip.hidden = false; };
+  document.addEventListener("pointerover", (e) => { const el = e.target.closest?.("[data-tip]"); if (el) showTip(el); else tip.hidden = true; });
+  document.addEventListener("click", (e) => { const el = e.target.closest?.("[data-tip]"); if (el) showTip(el); });
+  window.addEventListener("scroll", () => (tip.hidden = true), { passive: true });
+  // 動画リンク (admin) and アルバム uploads (anyone the platform lets upload)
+  document.addEventListener("submit", async (e) => {
+    if (e.target.id !== "videoForm") return;
+    e.preventDefault();
+    const url = $("#vUrl").value.trim(), title = $("#vTitle").value.trim();
+    if (!/^https:\/\/[^\s]+$/.test(url)) return toast("https:// から始まるURLを入れてください");
+    const videos = [...(S.gamemedia.find((x) => x.id === ui.game)?.videos || []), { title, url, at: new Date().toISOString() }];
+    await write(() => db.doc("gamemedia/" + ui.game).set({ videos }), "動画リンクを追加しました");
+  });
+  document.addEventListener("change", async (e) => {
+    if (e.target.id !== "albumFile" || !sb || myState().k !== "ok") return;
+    const files = [...e.target.files], key = ui.game; if (!files.length) return;
+    ui.uploading += files.length; renderResults();
+    let ok = 0;
+    for (const file of files) {
+      try {
+        if (file.size > 20 * 1024 * 1024) throw Object.assign(new Error("big"), { code: "too_large" });
+        const ticket = await rpc("album_ticket", { p_team: cred.team, p_member: myUid, p_code: cred.code });
+        const ext = ((file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin").slice(0, 5);
+        const path = `${myUid}/${ticket}/${rid()}.${ext}`;
+        const { error } = await sb.storage.from("album").upload(path, file, { contentType: file.type || undefined, upsert: false });
+        if (error) throw Object.assign(new Error(error.message), { code: /size|large|exceed/i.test(error.message) ? "too_large" : /mime|type/i.test(error.message) ? "unsupported_type" : "upload" });
+        await rpc("album_add", { p_team: cred.team, p_member: myUid, p_code: cred.code, p_game: key, p_path: path, p_type: file.type || "" });
+        ok++;
+      } catch (err) {
+        toast(err?.code === "too_large" ? `${file.name} は20MBを超えています` : err?.code === "unsupported_type" ? `${file.name} はこの形式に対応していません` : `${file.name} を投稿できませんでした`);
+      } finally { ui.uploading--; renderResults(); }
+    }
+    if (ok) { toast(`${ok}件 投稿しました`); await refresh(); }
+  });
+  $("#yearSelM").addEventListener("change", (e) => { ui.myear = e.target.value; renderMoney(); });
+  $("#qualOnly").addEventListener("change", renderPersonal);
+  $("#evKind").addEventListener("change", syncOppField);
+  // 集合時間 follows 開始時間 − 20分 until the admin types their own
+  const minus20 = (t) => { const [h, m] = t.split(":").map(Number); const x = (h * 60 + m - 20 + 1440) % 1440; return `${pad(Math.floor(x / 60))}:${pad(x % 60)}`; };
+  $("#evStart").addEventListener("change", () => { const t = $("#evStart").value; if (ui.meetAuto) $("#evMeet").value = t ? minus20(t) : ""; });
+  $("#evMeet").addEventListener("input", () => (ui.meetAuto = !$("#evMeet").value));
+
+  $("#evForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const kind = $("#evKind").value, game = kind !== "練習";
+    const data = { type: game ? "game" : "practice", kind, date: $("#evDate").value, startTime: $("#evStart").value, endTime: $("#evEnd").value, meetTime: $("#evMeet").value, time: "", place: $("#evPlace").value.trim(),
+      opponent: game ? $("#evOpp").value.trim() : "", note: $("#evNote").value.trim(),
+      costs: readCostRows(), cost: 0, costLabel: "", fee: Math.max(0, parseInt($("#evFee").value) || 0) };
+    if (!data.date) return toast("日付を入れてください");
+    const ok = ui.editing
+      ? await write(() => db.doc("events/" + ui.editing).update(data), "予定を更新しました")
+      : await write(() => db.collection("events").add({ ...data, result: null, feePaid: {}, created: new Date().toISOString() }), "予定を登録しました");
+    if (ok) resetEvForm();
+  });
+  $("#duesForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const data = { label: $("#duesLabel").value.trim(), amount: Math.max(0, parseInt($("#duesAmt").value) || 0), paid: {}, created: new Date().toISOString() };
+    if (!data.label) return toast("名目を入れてください");
+    if (await write(() => db.collection("dues").add(data), "徴収を作成しました")) e.target.reset();
+  });
+  $("#ledForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const amount = parseInt($("#ledAmt").value) || 0;
+    if (amount <= 0) return toast("金額を入れてください");
+    const data = { kind: ui.ledKind, date: $("#ledDate").value, amount, category: $("#ledCat").value, memo: $("#ledMemo").value.trim() };
+    if (await write(() => db.collection("ledger").add(data), "記録しました")) { $("#ledAmt").value = ""; $("#ledMemo").value = ""; }
+  });
+  $("#memForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = $("#memName").value.trim(); if (!name) return toast("名前を入れてください");
+    const noRaw = $("#memNo").value;
+    const data = { name, no: noRaw === "" ? null : parseInt(noRaw), pos: $("#memPos").value, noRsvp: $("#memNoRsvp").checked, uid: null };
+    if (await write(() => db.collection("members").add(data), `${name} さんを登録しました`)) e.target.reset();
+  });
+  $("#teamForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await write(() => db.doc("config/team").set({ ...S.team, name: $("#teamInput").value.trim() }), "チーム名を保存しました");
+  });
+  $("#rulesForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const paMul = parseFloat($("#paMul").value), ipMul = parseFloat($("#ipMul").value);
+    if (!(paMul >= 0) || !(ipMul >= 0)) return toast("0以上の数値を入れてください");
+    await write(() => db.doc("config/team").set({ ...S.team, paMul, ipMul }), "規定を保存しました");
+  });
+  $("#noticeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const title = $("#ntTitle").value.trim(); if (!title) return toast("タイトルを入れてください");
+    const data = { title, body: $("#ntBody").value.trim(), pinned: $("#ntPin").checked, date: new Date().toISOString() };
+    if (await write(() => db.collection("notices").add(data), "お知らせを発信しました")) e.target.reset();
+  });
+
+  // ---------- admin login box (footer) ----------
+  function renderAdminBox() {
+    setHTML($("#adminBox"), isAdmin
+      ? `<div class="row small muted"><span class="role">管理者</span>管理者としてログイン中<button class="link" data-action="admin-logout">ログアウト</button></div>`
+      : `<div><button class="link small" data-action="admin-login">管理者ログイン</button></div>
+        <form class="form" id="adminLogin" hidden style="max-width:360px"><label class="f">管理者パスワード<input type="password" id="adminPw" autocomplete="current-password"></label><div class="row"><button class="btn primary small" type="submit">ログイン</button></div></form>`);
+  }
+  async function loadCodeStatus() { if (!isAdmin) return; try { ui.codes = new Set(await rpc("admin_code_status", { p_admin: cred.admin })); renderAdminMembers(); } catch {} }
+  document.addEventListener("submit", async (e) => {
+    if (e.target.id === "adminLogin") {
+      e.preventDefault();
+      const pw = $("#adminPw").value;
+      try {
+        if (!(await rpc("admin_check", { p_admin: pw }))) return toast("パスワードが違います");
+        cred.admin = pw; saveCred(); isAdmin = true; renderAll(); renderAdminBox(); loadCodeStatus(); toast("管理者としてログインしました");
+      } catch { toast("通信できませんでした"); }
+    }
+    if (e.target.id === "secretForm") {
+      e.preventDefault();
+      const key = $("#secretKey").value, val = $("#secretVal").value.trim();
+      if (val.length < 4) return toast("4文字以上にしてください");
+      try {
+        await rpc("admin_set_secret", { p_admin: cred.admin, p_key: key, p_code: val });
+        if (key === "admin") cred.admin = val; else cred.team = val; saveCred();
+        $("#secretVal").value = ""; toast(key === "team" ? `チームの合言葉を「${val}」に変更しました。メンバーに伝えてください` : "管理者パスワードを変更しました");
+      } catch { toast("変更できませんでした"); }
+    }
+  });
+  $("#gateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    cred.team = $("#gateCode").value.trim();
+    $("#gateErr").hidden = true;
+    try { await refresh(); saveCred(); $("#gate").hidden = true; }
+    catch (err) { $("#gateErr").textContent = err.code === "invalid_argument" ? "合言葉が違います" : "通信できませんでした。もう一度お試しください"; $("#gateErr").hidden = false; }
+  });
+
+  // ---------- boot ----------
+  fillCats(); resetEvForm(); $("#ledDate").value = todayStr(); renderAll(); renderAdminBox();
+  (async () => {
+    if (!sb) { S.loaded = true; note("接続設定（config.js）が読み込めませんでした。管理者に連絡してください。"); renderAll(); return; }
+    if (!cred.team) { $("#gate").hidden = false; return; }
+    try { await refresh(); }
+    catch (e) { if (e.code === "invalid_argument") { cred.team = ""; saveCred(); $("#gate").hidden = false; return; } note("データを読み込めませんでした。ページを再読み込みしてください。"); }
+    if (cred.admin) { try { isAdmin = await rpc("admin_check", { p_admin: cred.admin }); } catch {} if (!isAdmin) { cred.admin = ""; saveCred(); } renderAll(); renderAdminBox(); loadCodeStatus(); }
+    // keep fresh: on focus and every minute while visible
+    window.addEventListener("focus", () => refresh().catch(() => {}));
+    setInterval(() => { if (document.visibilityState === "visible") refresh().catch(() => {}); }, 60000);
+  })();
+})();
+</script>
