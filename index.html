@@ -59,7 +59,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* scoreboard header */
-.board { background: var(--board); color: var(--board-fg); padding-block: 20px 0; }
+.board { background: var(--board) center / cover no-repeat; color: var(--board-fg); padding-block: 20px 0; }
+/* team photo set from 管理 > 設定: darkened toward the bottom so the name, record and tabs stay readable */
+.board.photo { background-image: linear-gradient(rgba(8,26,18,.2), rgba(8,26,18,.6) 45%, rgba(8,26,18,.9) 75%), var(--photo); }
+.board.photo .board-top { min-height: clamp(150px, 30vw, 280px); }
+.board.photo .team-name, .board.photo .season { text-shadow: 0 1px 6px rgba(0,0,0,.6); }
 .board-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .team-name { font-family: var(--display); font-size: clamp(22px, 6vw, 30px); line-height: 1.2; margin: 0; letter-spacing: .02em; text-wrap: balance; }
 .season { font-size: 12px; opacity: .85; letter-spacing: .08em; display: flex; gap: 8px; align-items: center; }
@@ -67,10 +71,14 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .record div { background: rgba(0,0,0,.28); padding: 4px 10px; text-align: center; min-width: 52px; }
 .record b { display: block; font-family: var(--display); font-size: 22px; font-weight: 400; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .record span { font-size: 11px; opacity: .75; }
-.tabs { display: flex; gap: 2px; margin-top: 16px; overflow-x: auto; align-items: stretch; scrollbar-width: none; }
+/* tabs wrap instead of scrolling so none are hidden; the admin group starts its own row */
+.tabs { display: flex; flex-wrap: wrap; gap: 0 2px; margin-top: 16px; align-items: stretch; }
 .tabs button { background: none; border: 0; color: var(--board-fg); opacity: .7; padding: 10px 12px; font-weight: 700; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
 .tabs button[aria-selected="true"] { opacity: 1; border-bottom-color: var(--clay); }
-.tabs .sep { display: flex; align-items: center; padding: 0 6px 0 12px; margin-left: 6px; border-left: 1px solid rgba(255,255,255,.25); font-size: 11px; letter-spacing: .1em; opacity: .7; white-space: nowrap; }
+.tabs .sep { flex-basis: 100%; padding: 6px 0 0 4px; margin-top: 2px; border-top: 1px solid rgba(255,255,255,.25); font-size: 11px; letter-spacing: .1em; opacity: .7; white-space: nowrap; }
+@media (max-width: 600px) {
+  .tabs button { padding: 8px 8px; font-size: 14px; }
+}
 .role { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 4px; background: var(--clay); color: var(--board-fg); letter-spacing: .04em; }
 
 main { padding-block: 20px 60px; }
@@ -118,9 +126,9 @@ label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 14px
 .badge.new { background: var(--clay); color: var(--surface); }
 
 /* events */
-.ev { display: grid; grid-template-columns: 64px 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.ev { display: grid; grid-template-columns: 72px 1fr; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .ev-date { background: var(--sunk); display: grid; place-content: center; text-align: center; padding: 10px 4px; }
-.ev-date .md { font-family: var(--display); font-size: 19px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ev-date .md { font-family: var(--display); font-size: 17px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .ev-date .wd { font-size: 12px; color: var(--muted); }
 .ev-date .wd.sun { color: var(--no); } .ev-date .wd.sat { color: var(--sat); }
 .ev-body { padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
@@ -157,7 +165,11 @@ details > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .kpis div { background: var(--surface); padding: 10px 14px; }
 .kpis span { font-size: 12px; color: var(--muted); }
-.kpis b { display: block; font-family: var(--display); font-weight: 400; font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.3; }
+.kpis b { display: block; font-family: var(--display); font-weight: 400; font-size: 20px; font-variant-numeric: tabular-nums; line-height: 1.3; white-space: nowrap; }
+@media (max-width: 600px) {
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpis b { font-size: 18px; }
+}
 .leaders { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .lb { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; }
 .lb h3 { margin-bottom: 6px; }
@@ -197,7 +209,8 @@ button.pname { background: none; border: 0; padding: 0; cursor: pointer; font-we
 .li:last-child { border-bottom: 0; }
 .li .grow { flex: 1 1 160px; min-width: 0; }
 .li .sub { flex-basis: 100%; }
-.amt { font-variant-numeric: tabular-nums; font-weight: 700; }
+.amt { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+.li > .amt { margin-left: auto; }
 .cost-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: end; }
 tr.hist td { background: var(--sunk); }
 .date { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; min-width: 5.5em; }
@@ -261,7 +274,7 @@ tr.hist td { background: var(--sunk); }
   </form>
 </div>
 
-<header class="board">
+<header class="board" id="board">
   <div class="wrap">
     <div class="board-top">
       <div>
@@ -371,7 +384,7 @@ tr.hist td { background: var(--sunk); }
     <div class="section"><h3>項目別</h3><div class="tbl-wrap" id="moneyCats"></div></div>
     <div class="section"><h3>部費の納入状況</h3><div id="dues" class="section"></div></div>
     <div class="section"><h3>入出金の明細</h3><div id="ledger"></div></div>
-    <p class="small muted" style="margin:0">予定に登録した費用・参加費、部費の納入分も自動で明細に入ります。</p>
+    <p class="small muted" style="margin:0">予定に登録した費用・参加費は、その活動の終了時刻（未設定の場合はその日の終わり）を過ぎると明細に入ります。部費の納入分も自動で入ります。</p>
   </section>
 
   <!-- ===== 管理：メンバー登録 ===== -->
@@ -500,6 +513,15 @@ tr.hist td { background: var(--sunk); }
       <label class="f">チーム名<input type="text" id="teamInput" placeholder="チーム名"></label>
       <div class="row"><button class="btn" type="submit">保存する</button></div>
     </form>
+    <div class="form">
+      <h2>ヘッダー写真</h2>
+      <p class="small muted" style="margin:0">画面上部「チーム名」の背景に表示します。横長のチーム写真がおすすめです（大きな写真は自動で縮小します）。</p>
+      <div id="photoPreview"></div>
+      <div class="row">
+        <label class="btn primary small upl" for="photoFile">写真を選ぶ<input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp,image/heic"></label>
+        <button class="btn small danger" type="button" data-action="del-photo" id="photoDel" hidden>写真を外す</button>
+      </div>
+    </div>
   </section>
 
   <!-- ===== 管理：お知らせ ===== -->
@@ -523,8 +545,11 @@ tr.hist td { background: var(--sunk); }
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const yen = (n) => (n < 0 ? "−¥" : "¥") + Math.abs(Math.round(n)).toLocaleString("ja-JP");
   const pad = (n) => String(n).padStart(2, "0");
-  const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-  const thisYear = String(new Date().getFullYear());
+  // all dates and times are Japan time, whatever the device's time zone; stored timestamps are UTC ISO strings
+  const JST = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+  const jst = (when = new Date()) => { const p = Object.fromEntries(JST.formatToParts(new Date(when)).map((x) => [x.type, x.value])); return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}`, y: p.year, m: p.month, d: p.day }; };
+  const todayStr = () => jst().date;
+  const thisYear = todayStr().slice(0, 4);
   const WD = ["日", "月", "火", "水", "木", "金", "土"];
   const mdw = (date) => { const d = new Date(date + "T00:00:00"); return `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`; };
   const store = {
@@ -622,7 +647,9 @@ tr.hist td { background: var(--sunk); }
   const activeMembers = () => sortMembers(S.members.filter((m) => !m.ob && !m.hidden));
   const mName = (id) => memberById(id)?.name || "（退団者）";
   const mLabel = (m) => `${m.no != null ? "#" + esc(m.no) + " " : ""}${esc(m.name)}`;
-  const evById = (id) => S.events.find((e) => e.id === id);
+  // stats lines look their event up many times per render, so keep an index per loaded events array
+  let evIndex = null, evIndexOf = null;
+  const evById = (id) => { if (evIndexOf !== S.events) { evIndexOf = S.events; evIndex = new Map(S.events.map((e) => [e.id, e])); } return evIndex.get(id); };
   const isGame = (e) => e.type === "game";
   const kindOf = (e) => e.kind || (isGame(e) ? "練習試合" : "練習");
   const evTitle = (e) => isGame(e) ? (e.opponent ? "vs " + esc(e.opponent) : esc(kindOf(e))) : "練習";
@@ -637,6 +664,8 @@ tr.hist td { background: var(--sunk); }
   const startOf = (e) => e.startTime || e.time || "";
   const timeLine = (e) => [e.meetTime ? `集合 ${esc(e.meetTime)}` : "", startOf(e) || e.endTime ? `${esc(startOf(e))}〜${esc(e.endTime || "")}` : ""].filter(Boolean).join(" ・ ");
   const sortedEvents = () => S.events.slice().sort((a, b) => (a.date + startOf(a)).localeCompare(b.date + startOf(b)));
+  // an activity is over once its end time has passed (no end time: at the end of its day)
+  const ended = (e) => { const n = jst(); return `${e.date} ${e.endTime || "23:59"}` <= `${n.date} ${n.time}`; };
   // members who answer attendance (admins can mark coaches/managers etc. as not needing to)
   const rsvpMembers = () => activeMembers().filter((m) => !m.noRsvp);
   const inFilter = (e, year = ui.year, kind = ui.kind) => e && (!year || (e.date || "").startsWith(year)) && (!kind || resultKind(kindOf(e)) === kind);
@@ -762,8 +791,12 @@ tr.hist td { background: var(--sunk); }
     $$(".w-only").forEach((el) => (el.hidden = !isAdmin));
   }
   function showTab(t) { ui.tab = t; store.set("tab", t); renderNav(); window.scrollTo({ top: 0 }); }
+  const photoUrl = () => S.team.headerPhoto ? mediaUrl({ path: S.team.headerPhoto }) : "";
   function renderHeader() {
     $("#teamName").textContent = S.team.name || "マイチーム";
+    const url = photoUrl(), board = $("#board");
+    board.classList.toggle("photo", !!url);
+    if (url) board.style.setProperty("--photo", `url(${JSON.stringify(url)})`); else board.style.removeProperty("--photo");
     $("#seasonLabel").textContent = `${thisYear} SEASON`;
     const r = teamRecord(thisYear, "");
     $("#recW").textContent = r.w; $("#recL").textContent = r.l; $("#recD").textContent = r.d;
@@ -832,7 +865,7 @@ tr.hist td { background: var(--sunk); }
   function noticeCard(n, admin) {
     const isNew = n.date && Date.now() - new Date(n.date).getTime() < 7 * 864e5;
     return `<article class="notice ${n.pinned ? "pinned" : ""}" data-id="${esc(n.id)}">
-      <div class="row spread"><div class="row">${n.pinned ? `<span class="badge new">固定</span>` : isNew ? `<span class="badge new">NEW</span>` : ""}<b>${esc(n.title)}</b></div><span class="date">${n.date ? esc(n.date.slice(0, 10).replace(/-/g, "/")) : ""}</span></div>
+      <div class="row spread"><div class="row">${n.pinned ? `<span class="badge new">固定</span>` : isNew ? `<span class="badge new">NEW</span>` : ""}<b>${esc(n.title)}</b></div><span class="date">${n.date ? esc(jst(n.date).date.replace(/-/g, "/")) : ""}</span></div>
       ${n.body ? `<div class="body">${esc(n.body)}</div>` : ""}
       ${admin ? `<div class="row" style="margin-top:6px"><button class="btn small" data-action="pin-notice">${n.pinned ? "固定を外す" : "固定する"}</button><button class="btn small danger" data-action="del-notice">削除</button></div>` : ""}
     </article>`;
@@ -851,8 +884,7 @@ tr.hist td { background: var(--sunk); }
       ${due.map((e) => `<div class="small">・${esc(mdw(e.date))} ${esc(kindOf(e))} ${evTitle(e)}（あと${daysUntil(e.date)}日・現在「${ANS_JA[answersFor(e.id)[st.m.id] || ""]}」）</div>`).join("")}</div>` : "");
     const ns = sortedNotices().slice(0, 4);
     setHTML($("#homeNotices"), ns.length ? `<h2>お知らせ</h2>${ns.map((n) => noticeCard(n, false)).join("")}` : "");
-    const t = todayStr();
-    const up = sortedEvents().filter((e) => e.date >= t).slice(0, 3);
+    const up = sortedEvents().filter((e) => !ended(e)).slice(0, 1);
     $("#homeEvents").innerHTML = up.length ? up.map((e) => eventCard(e, false)).join("") : `<div class="empty">${S.loaded ? "予定はまだ登録されていません。" : "読み込み中…"}</div>`;
 
     $("#homeTeamTitle").textContent = `${thisYear}年のチーム成績`;
@@ -947,14 +979,14 @@ tr.hist td { background: var(--sunk); }
     const inY = (d) => !year || (d || "").startsWith(year);
     S.ledger.forEach((l) => inY(l.date) && t.push({ date: l.date, cat: l.category, memo: l.memo || "", amt: (l.kind === "in" ? 1 : -1) * n0(l.amount), ledgerId: l.id }));
     S.events.forEach((e) => {
-      if (!inY(e.date) || e.cancelled) return;
+      if (!inY(e.date) || e.cancelled || !ended(e)) return;
       const title = `${mdw(e.date)} ${kindOf(e)}${e.opponent ? " vs " + e.opponent : ""}`;
       costsOf(e).forEach((c) => t.push({ date: e.date, cat: c.label || "その他", memo: title, amt: -n0(c.amount) }));
       const paid = Object.values(e.feePaid || {}).filter(Boolean).length;
       if (n0(e.fee) && paid) t.push({ date: e.date, cat: "参加費", memo: `${title}（${paid}人）`, amt: n0(e.fee) * paid });
     });
     S.dues.forEach((d) => {
-      const date = (d.created || "").slice(0, 10); if (!inY(date)) return;
+      const date = d.created ? jst(d.created).date : ""; if (!inY(date)) return;
       const paid = Object.values(d.paid || {}).filter(Boolean).length;
       if (paid) t.push({ date, cat: "部費", memo: `${d.label}（${paid}人）`, amt: n0(d.amount) * paid });
     });
@@ -1038,7 +1070,7 @@ tr.hist td { background: var(--sunk); }
         <button class="btn small" data-action="edit-event">編集</button>
         <button class="btn small" data-action="toggle-cancel">${off ? "中止を取り消す" : "中止"}</button>
         <button class="btn small danger" data-action="del-event">削除</button>
-        ${costsOf(e).length || n0(e.fee) ? `<div class="sub small muted">${[...costsOf(e).map((c) => `${esc(c.label)} ${yen(n0(c.amount))}`), costsOf(e).length > 1 ? `費用合計 ${yen(costsOf(e).reduce((s, c) => s + n0(c.amount), 0))}` : "", n0(e.fee) ? `参加費 ${yen(n0(e.fee))} × 徴収済み ${paidN}人 = ${yen(n0(e.fee) * paidN)}` : "", off ? "中止のため会計には反映しません" : ""].filter(Boolean).join(" ・ ")}</div>` : ""}
+        ${costsOf(e).length || n0(e.fee) ? `<div class="sub small muted">${[...costsOf(e).map((c) => `${esc(c.label)} ${yen(n0(c.amount))}`), costsOf(e).length > 1 ? `費用合計 ${yen(costsOf(e).reduce((s, c) => s + n0(c.amount), 0))}` : "", n0(e.fee) ? `参加費 ${yen(n0(e.fee))} × 徴収済み ${paidN}人 = ${yen(n0(e.fee) * paidN)}` : "", off ? "中止のため会計には反映しません" : ended(e) ? "" : "活動の終了後に会計へ反映します"].filter(Boolean).join(" ・ ")}</div>` : ""}
         ${n0(e.fee) && !off ? `<div class="sub dues-grid">${yes.length ? yes.map((m) => `<button type="button" class="chip" data-action="toggle-fee" data-m="${esc(m.id)}" aria-pressed="${!!(e.feePaid || {})[m.id]}">${(e.feePaid || {})[m.id] ? "✓ " : ""}${esc(m.name)}</button>`).join("") : `<span class="small muted">「参加」と回答した人がここに並び、タップで徴収済みにできます。</span>`}</div>` : ""}
       </div>`;
     };
@@ -1078,7 +1110,7 @@ tr.hist td { background: var(--sunk); }
     const seen = S.team.alertsSeenAt || "";
     const list = changeAlerts().slice(0, 60);
     setHTML($("#changeAlerts"), list.length ? `<div class="list">${list.map((c) => { const e = evById(c.eventId); const isNew = !seen || c.at > seen; return `<div class="li">
-        ${isNew ? `<span class="badge new">未読</span>` : ""}<span class="date">${esc(c.at.slice(5, 16).replace("T", " ").replace("-", "/"))}</span>
+        ${isNew ? `<span class="badge new">未読</span>` : ""}<span class="date">${(({ m, d, time }) => `${m}/${d} ${time}`)(jst(c.at))}</span>
         <div class="grow"><b>${esc(mName(c.memberId))}</b> <span class="small">${esc(ANS_JA[c.from || ""])} → <b class="${c.to === "yes" ? "t-yes" : c.to === "no" ? "t-no" : "t-maybe"}">${esc(ANS_JA[c.to || ""])}</b></span>
           <div class="small muted">${esc(mdw(e.date))} ${esc(kindOf(e))} ${evTitle(e)}</div></div>
       </div>`; }).join("")}</div>` : `<div class="empty">活動日${LATE_DAYS}日前以降の出欠変更はまだありません。</div>`);
@@ -1101,6 +1133,34 @@ tr.hist td { background: var(--sunk); }
     $("#adminDues").innerHTML = duesHTML(S.dues, true) || `<div class="empty">部費の徴収はまだありません。</div>`;
     const led = S.ledger.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).map((l) => ({ date: l.date || "", cat: l.category, memo: l.memo || "", amt: (l.kind === "in" ? 1 : -1) * n0(l.amount), ledgerId: l.id }));
     $("#adminLedger").innerHTML = led.length ? `<div class="list">${led.map((x) => ledgerRow(x, true)).join("")}</div>` : `<div class="empty">手入力の入出金はまだありません。</div>`;
+    const url = photoUrl();
+    setHTML($("#photoPreview"), url ? `<img src="${esc(url)}" alt="現在のヘッダー写真" style="display:block;max-height:160px;border-radius:6px">` : `<div class="small muted">写真は設定されていません。</div>`);
+    $("#photoDel").hidden = !url;
+  }
+
+  // ヘッダー写真: shrunk in the browser (long side 2000px, JPEG) and stored in the album bucket under _team/<ticket>/
+  async function shrinkPhoto(file) {
+    const src = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = src; });
+      const k = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = Object.assign(document.createElement("canvas"), { width: Math.round(img.naturalWidth * k), height: Math.round(img.naturalHeight * k) });
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      return await new Promise((ok, ng) => c.toBlob((b) => (b ? ok(b) : ng(new Error("encode"))), "image/jpeg", 0.85));
+    } finally { URL.revokeObjectURL(src); }
+  }
+  async function uploadPhoto(file) {
+    if (!isAdmin || !sb) return;
+    let blob;
+    try { blob = await shrinkPhoto(file); } catch { return toast("この写真は読み込めませんでした。JPEG か PNG でお試しください"); }
+    toast("写真をアップロード中…");
+    try {
+      const ticket = await rpc("admin_upload_ticket", { p_admin: cred.admin });
+      const path = `_team/${ticket}/${rid()}.jpg`;
+      const { error } = await sb.storage.from("album").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (error) throw error;
+      await write(() => db.doc("config/team").set({ ...S.team, headerPhoto: path }), "ヘッダー写真を設定しました");
+    } catch { toast("写真をアップロードできませんでした。もう一度お試しください"); }
   }
 
   // ---------- 管理：ポータルから取り込み ----------
@@ -1299,7 +1359,7 @@ tr.hist td { background: var(--sunk); }
     if (lk) { ui.ledKind = lk.dataset.ledkind; $$("[data-ledkind]").forEach((b) => b.setAttribute("aria-pressed", b === lk)); fillCats(); return; }
     const sk = ev.target.closest("[data-statkind]");
     if (sk) { ui.statKind = sk.dataset.statkind; $$("#tab-personal [data-statkind]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.statkind === ui.statKind)); renderPersonal(); return; }
-    const kf = ev.target.closest("[data-kind]"); if (kf) { ui.kind = kf.dataset.kind; renderFilters(); renderPersonal(); renderTeam(); return; }
+    const kf = ev.target.closest("[data-kind]"); if (kf) { ui.kind = kf.dataset.kind; renderFilters(); renderPersonal(); renderTeam(); renderResults(); return; }
     const th = ev.target.closest("th[data-sort]"); if (th) { ui.sort[ui.statKind] = th.dataset.sort; renderPersonal(); return; }
     const gm = ev.target.closest("[data-game]"); if (gm) { ui.game = gm.dataset.game; renderResults(); window.scrollTo({ top: 0 }); return; }
     const pc = ev.target.closest("[data-pl]"); if (pc) { ui.pl = pc.dataset.pl; ui.pyear = ""; renderPlayers(); window.scrollTo({ top: 0 }); return; }
@@ -1375,6 +1435,7 @@ tr.hist td { background: var(--sunk); }
     }
     else if (a === "admin-login") { const f = $("#adminLogin"); f.hidden = !f.hidden; if (!f.hidden) $("#adminPw").focus(); }
     else if (a === "admin-logout") { cred.admin = ""; saveCred(); isAdmin = false; renderAll(); renderAdminBox(); toast("管理者からログアウトしました"); }
+    else if (a === "del-photo") { if (armed(btn)) { const { headerPhoto, ...rest } = S.team; await write(() => db.doc("config/team").set(rest), "ヘッダー写真を外しました"); } }
     else if (a === "del-notice") { if (armed(btn)) await write(() => db.doc("notices/" + hostId).delete(), "お知らせを削除しました"); }
   });
 
@@ -1419,6 +1480,7 @@ tr.hist td { background: var(--sunk); }
     if (ok) { toast(`${ok}件 投稿しました`); await refresh(); }
   });
   $("#yearSelM").addEventListener("change", (e) => { ui.myear = e.target.value; renderMoney(); });
+  $("#photoFile").addEventListener("change", async (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) await uploadPhoto(f); });
   $("#qualOnly").addEventListener("change", renderPersonal);
   $("#evKind").addEventListener("change", syncOppField);
   // 集合時間 follows 開始時間 − 20分 until the admin types their own
